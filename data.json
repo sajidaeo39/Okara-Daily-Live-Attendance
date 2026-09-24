@@ -1,0 +1,12 @@
+{
+  "generated_at": null,
+  "rows": [],
+  "errors": [],
+  "validation": {
+    "status": "PENDING",
+    "expected_schools": 0,
+    "collected_schools": 0,
+    "missing_schools": 0,
+    "error_count": 0
+  }
+}

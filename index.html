@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>School Teacher & Student Attendance Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{--blue:#1457a6;--blue2:#0d3d78;--green:#087f5b;--red:#c92a2a;--amber:#b26a00;--ink:#172033;--muted:#667085;--line:#dbe2ea;--bg:#f4f7fb;--white:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Segoe UI,Arial,sans-serif;color:var(--ink)}
+header{background:linear-gradient(135deg,var(--blue2),var(--blue));color:#fff;padding:20px 0}
+.wrap{max-width:1500px;margin:auto;padding:0 18px}h1{margin:0;font-size:25px}header p{margin:5px 0 0;opacity:.9;font-size:13px}
+.livebox{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0;box-shadow:0 2px 8px #0000000b}.hint{font-size:12px;color:var(--muted);margin-top:7px}.status{font-size:12px;margin-top:8px;font-weight:600}
+#app{display:none}.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px;box-shadow:0 2px 8px #00000008}.label{font-size:11px;color:var(--muted)}.num{font-size:21px;font-weight:750;margin-top:4px}.sub{font-size:10px;color:var(--muted);margin-top:3px}
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.tab{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:8px 11px;font-weight:650;cursor:pointer}.tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.toolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);padding:10px;border-radius:11px;margin-bottom:10px}
+.toolbar input,.toolbar select{padding:8px 9px;border:1px solid #cbd5e1;border-radius:7px;background:#fff}.toolbar input{min-width:250px}
+.action{border:0;border-radius:7px;padding:8px 11px;background:var(--green);color:#fff;font-weight:650;cursor:pointer}.pdf{background:#b42318}.secondary{background:#475467}
+.note{font-size:12px;color:var(--muted);margin:7px 0 11px}.warning{background:#fff4d6;border:1px solid #f2c66d;color:#704c00;padding:9px 11px;border-radius:9px;margin:8px 0;font-size:12px}
+.tablebox{background:#fff;border:1px solid var(--line);border-radius:11px;overflow:auto;max-height:58vh}
+table{border-collapse:collapse;width:100%;font-size:11px;table-layout:auto}th,td{padding:7px 8px;border-bottom:1px solid var(--line);white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.25;text-align:right}th{position:sticky;top:0;background:#edf4fd;z-index:1;white-space:normal;overflow-wrap:anywhere;word-break:break-word}th:first-child,td:first-child{text-align:left}
+.good{color:var(--green);font-weight:800}.bad{color:var(--red);font-weight:800}.amber{color:var(--amber);font-weight:700}.progress-high td{background:#edf9f4}.progress-low td{background:#fff0f0}.progress-high td:first-child,.progress-low td:first-child{font-weight:800}.empty{padding:25px;text-align:center;color:var(--muted)}
+@media(max-width:1100px){.cards{grid-template-columns:repeat(4,1fr)}}@media(max-width:650px){.cards{grid-template-columns:repeat(2,1fr)}.wrap{padding:9px}.toolbar input{min-width:100%}h1{font-size:19px}}
+
+/* V27 CLEAR LANDSCAPE PRINT */
+.pdf-only{display:none}
+@media print{
+ @page{size:A4 landscape;margin:7mm 7mm 8mm 7mm}
+ html,body{background:#fff!important}
+ header,.livebox,.tabs,.toolbar,#warning,.cards{display:none!important}
+ .wrap{max-width:none;padding:0}
+ #app{display:block!important}
+ .pdf-only{display:block}
+ #pdfTitle{font-size:15px!important;line-height:1.2!important;margin-bottom:4px!important}
+ #pdfMeta{font-size:8px!important;line-height:1.2!important;margin-bottom:8px!important}
+ .note{font-size:8px;margin:0 0 5px;line-height:1.2}
+ .tablebox{max-height:none;overflow:visible;border:0;border-radius:0}
+ table{width:100%;font-size:7.2px;table-layout:fixed}
+ th,td{
+   padding:4px 3px;
+   white-space:normal;
+   overflow-wrap:anywhere;
+   word-break:break-word;
+   text-align:center;
+   line-height:1.15;
+   vertical-align:middle;
+ }
+ th:first-child,td:first-child{text-align:left}
+ th{position:static;background:#eaf2fb}
+ tr{page-break-inside:avoid}
+}
+
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>Teacher & Student Attendance Dashboard</h1>
+<p>Live SIS attendance dashboard — data is refreshed automatically from the latest GitHub Actions JSON.</p>
+</div></header>
+
+<div class="wrap">
+<div class="livebox">
+<b>🌐 Live SIS Attendance</b><br>
+<button class="action" id="updateBtn">↻ Update Live Data</button>
+<button class="action secondary" id="refreshBtn">⟳ Refresh Dashboard</button>
+<span id="liveStatus" class="status"></span>
+<div class="hint">Live data is collected from SIS by GitHub Actions. <b>Update Live Data</b> opens the repository workflow so you can start a fresh SIS collection. No Excel upload is used.</div>
+<div id="status" class="status"></div>
+</div>
+
+<div id="app">
+<div id="cards" class="cards"></div>
+
+<div class="tabs">
+<button class="tab active" data-view="school">School Wise</button>
+<button class="tab" data-view="markaz">Markaz Wise</button>
+<button class="tab" data-view="tehsil">Tehsil Wise</button>
+<button class="tab" data-view="wing">Wing Wise</button>
+<button class="tab" data-view="zero">Zero Progress Schools</button>
+<button class="tab" data-view="teachers">Teacher Report</button>
+<button class="tab" data-view="students">Student Report</button>
+</div>
+
+<div class="toolbar">
+<input id="search" placeholder="Search school / markaz / tehsil / EMIS">
+<select id="tehsilFilter"><option value="">All Tehsils</option></select>
+<select id="markazFilter"><option value="">All Markaz</option></select>
+<select id="wingFilter"><option value="">All Wings</option></select>
+<select id="attendanceType">
+<option value="both">Teacher + Student</option><option value="teacher">Teacher Attendance</option><option value="student">Student Attendance</option>
+</select>
+<button class="action" id="excelBtn">⬇ Download Excel</button>
+<button class="action pdf" id="pdfBtn">⬇ Download PDF</button>
+<button class="action secondary" id="clearBtn">Reset Filters</button>
+</div>
+
+<div id="warning" class="warning" style="display:none"></div>
+
+</div>
+
+<div class="pdf-only" id="pdfHeader"><div id="pdfTitle" style="font-size:15px;font-weight:800;text-align:center;margin-bottom:3px">School Wise Attendance</div><div id="pdfMeta" style="font-size:8px;text-align:center;margin-bottom:7px"></div></div>
+<div class="note" id="info"></div>
+<div class="tablebox"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+</div>
+</div>
+
+<script>
+let rows=[], currentView='school', reportDate='';
+const LIVE_DATA_URL='data.json';
+const GITHUB_ACTION_URL='https://github.com/sajidaeo39/Okara-Live-Attendance/actions/workflows/update-attendance.yml';
+
+const num=(v)=>{ if(v===null||v===undefined||v==='') return 0; const n=Number(v); return Number.isFinite(n)?n:0; };
+const fmt=(n)=>Number(n||0).toLocaleString('en-US');
+const pct=(p,t)=>t>0?Math.round(p/t*1000)/10:0;
+const safe=(s)=>String(s??'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,'_').replace(/_+/g,'_');
+const esc=(s)=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function normalize(r){
+ return {
+  tehsil:String(r['Tehsil']??'').trim(),
+  tehsilID:String(r['Tehsil ID']??'').trim(),
+  markaz:String(r['Report Markaz']??r['Markaz']??'').trim(),
+  markazID:String(r['Actual Markaz ID']??r['Markaz ID']??'').trim(),
+  wing:String(r['Wing']??'').trim(),
+  school:String(r['School']??'').trim(),
+  schoolID:String(r['School ID']??'').trim(),
+  emis:String(r['EMIS']??'').trim(),
+  tp:num(r['Teacher Present']), ta:num(r['Teacher Absent']), tu:num(r['Teacher Unmarked']), tt:num(r['Teacher Total']),
+  sp:num(r['Student Present']), sa:num(r['Student Absent']), su:num(r['Student Unmarked']), st:num(r['Student Total']),
+  sm:num(r['Student Marked'])
+ };
+}
+function teacherRate(r){return r.tt>0?100*r.tp/r.tt:0}
+function studentRate(r){return r.st>0?100*r.sp/r.st:0}
+function rateFor(r,type){return type==='teacher'?teacherRate(r):studentRate(r)}
+
+function filtered(){
+ const q=document.getElementById('search').value.toLowerCase().trim();
+ const t=document.getElementById('tehsilFilter').value, m=document.getElementById('markazFilter').value, w=document.getElementById('wingFilter').value;
+ return rows.filter(r=>
+  (!q || [r.school,r.markaz,r.tehsil,r.emis].join(' ').toLowerCase().includes(q)) &&
+  (!t||r.tehsil===t)&&(!m||r.markaz===m)&&(!w||r.wing===w)
+ );
+}
+function aggregate(list,field){
+ const map=new Map();
+ list.forEach(r=>{
+  const key=r[field]||'Unknown';
+  if(!map.has(key)) map.set(key,{name:key,schools:0,tp:0,ta:0,tu:0,tt:0,sp:0,sa:0,su:0,st:0,sm:0});
+  const a=map.get(key); a.schools++;
+  ['tp','ta','tu','tt','sp','sa','su','st','sm'].forEach(k=>a[k]+=r[k]);
+ });
+ return [...map.values()];
+}
+function renderCards(){
+ const f=filtered();
+ const s=f.reduce((a,r)=>{['tp','ta','tu','tt','sp','sa','su','st','sm'].forEach(k=>a[k]+=r[k]);a.schools++;return a},{schools:0,tp:0,ta:0,tu:0,tt:0,sp:0,sa:0,su:0,st:0,sm:0});
+ const markedTeachers=s.tt, markedStudents=s.st;
+ const tr=pct(s.tp,markedTeachers), sr=pct(s.sp,markedStudents);
+ document.getElementById('cards').innerHTML=[
+ ['Schools',s.schools,'Filtered schools'],
+ ['Total Teachers',s.tt,'Present + Absent + Unmarked'],
+ ['Teachers Present',s.tp,'Present teachers'],
+ ['Teachers Absent',s.ta,'Absent teachers'],
+ ['Teachers Unmarked',s.tu,'Excluded from teacher %'],
+ ['Teacher %',tr+'%','Present Teachers / Total Teachers'],
+ ['Total Students',s.st,'Present + Absent + Unmarked'],
+ ['Students Present',s.sp,'Present students'],
+ ['Students Absent',s.sa,'Absent students'],
+ ['Students Unmarked',s.su,'Excluded from student %'],
+ ['Student %',sr+'%','Present Students / Total Students']
+ ].map(x=>`<div class="card"><div class="label">${x[0]}</div><div class="num">${typeof x[1]==='number'?fmt(x[1]):x[1]}</div><div class="sub">${x[2]}</div></div>`).join('');
+}
+
+function sortForPerformance(list){
+  const type=document.getElementById('attendanceType').value;
+  return [...list].sort((a,b)=>{
+    const rb=rateFor(b,type), ra=rateFor(a,type);
+    if(rb!==ra) return rb-ra;
+    return String(a.school||a.name||'').localeCompare(String(b.school||b.name||''));
+  });
+}
+function sortAggregatesForPerformance(list){
+  const type=document.getElementById('attendanceType').value;
+  return [...list].sort((a,b)=>{
+    const rb=rateFor(b,type), ra=rateFor(a,type);
+    if(rb!==ra) return rb-ra;
+    return String(a.name||'').localeCompare(String(b.name||''));
+  });
+}
+
+function tableFor(f){
+ if(currentView==='school') return {
+  title:'School Wise Attendance',
+  headers:['School','EMIS','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
+  data:sortForPerformance(f).map(r=>[r.school,r.emis,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%',r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])
+ };
+ if(currentView==='markaz'||currentView==='tehsil'||currentView==='wing'){
+  const field=currentView==='markaz'?'markaz':currentView;
+  return {title:currentView[0].toUpperCase()+currentView.slice(1)+' Wise Attendance',
+   headers:[field[0].toUpperCase()+field.slice(1),'Schools','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
+   data:sortAggregatesForPerformance(aggregate(f,field)).map(a=>[a.name,a.schools,a.tt,a.tp,a.ta,a.tu,pct(a.tp,a.tt).toFixed(1)+'%',a.st,a.sp,a.sa,a.su,pct(a.sp,a.st).toFixed(1)+'%'])
+  };
+ }
+ if(currentView==='zero'){
+  const a=f.filter(r=>(r.tt>0 || r.st>0) && r.tp===0 && r.sp===0);
+  return {title:'Zero Progress Schools',
+   headers:['School','EMIS','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
+   data:a.sort((x,y)=>String(x.school).localeCompare(String(y.school))).map(r=>[r.school,r.emis,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%',r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])};
+ }
+ if(currentView==='teachers') return {
+  title:'Teacher Attendance Report',
+  headers:['School','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %'],
+  data:sortForPerformance(f).map(r=>[r.school,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%'])
+ };
+ return {
+  title:'Student Attendance Report',
+  headers:['School','Tehsil','Markaz','Wing','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
+  data:sortForPerformance(f).map(r=>[r.school,r.tehsil,r.markaz,r.wing,r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])
+ };
+}
+function renderTable(){
+ const f=filtered(), td=tableFor(f);
+ document.getElementById('thead').innerHTML='<tr>'+td.headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>';
+ document.getElementById('tbody').innerHTML=td.data.length?td.data.map(r=>{
+   const rates=r.map((v,i)=>({h:td.headers[i]||'',n:parseFloat(v)})).filter(x=>x.h.includes('%')&&Number.isFinite(x.n));
+   const minRate=rates.length?Math.min(...rates.map(x=>x.n)):100;
+   const rowClass=minRate>=90?'progress-high':minRate<70?'progress-low':'';
+   return '<tr class="'+rowClass+'">'+r.map((v,i)=>{
+    let cls='', hh=td.headers[i]||'';
+    if(hh.includes('%')){let n=parseFloat(v);cls=n>=90?'good':n<70?'bad':'amber'}
+    return `<td class="${cls}">${typeof v==='number'?fmt(v):esc(v)}</td>`;
+   }).join('')+'</tr>';
+ }).join(''):`<tr><td colspan="${td.headers.length}" class="empty">No records found.</td></tr>`;
+ document.getElementById('info').textContent=`${td.title} • ${td.data.length.toLocaleString()} rows • ${reportDate?'Report date: '+reportDate:''}`;
+}
+
+function renderDashboard(){renderCards();renderTable(); const z=document.querySelector('.tab[data-view=\"zero\"]'); if(z){const n=filtered().filter(r=>(r.tt>0||r.st>0)&&r.tp===0&&r.sp===0).length; z.textContent='Zero Progress Schools'+(n?' ('+n+')':'');}}
+
+function fillFilters(){
+ const fill=(id,vals,label)=>{const el=document.getElementById(id);const old=el.value;el.innerHTML=`<option value="">${label}</option>`+[...new Set(vals.filter(Boolean))].sort().map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');if([...el.options].some(o=>o.value===old))el.value=old;};
+ fill('tehsilFilter',rows.map(r=>r.tehsil),'All Tehsils');
+ fill('markazFilter',rows.map(r=>r.markaz),'All Markaz');
+ fill('wingFilter',rows.map(r=>r.wing),'All Wings');
+}
+
+
+async function loadLiveData(){
+  const status=document.getElementById('liveStatus');
+  status.textContent=' Loading live SIS data...';
+  try{
+    const res=await fetch(LIVE_DATA_URL+'?t='+Date.now(),{cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const payload=await res.json();
+    if(!Array.isArray(payload.rows)) throw new Error('data.json has no rows array');
+    rows=payload.rows.map(normalize).filter(r=>r.school||r.emis);
+    reportDate=payload.generated_at?new Date(payload.generated_at).toLocaleString():'';
+    document.getElementById('app').style.display='block';
+    const v=payload.validation||{};
+    const warn=document.getElementById('warning');
+    if(v.status==='PENDING'){
+      warn.style.display='block';
+      warn.innerHTML=`ℹ️ <b>LIVE SIS DATA NOT UPDATED YET</b> — click <b>Update Live Data</b> to start the GitHub Action and collect fresh SIS attendance.`;
+      document.getElementById('status').textContent='Waiting for first live SIS update.';
+      status.textContent=' ⏳ Waiting for live update';
+    }else if(v.status==='INCOMPLETE'){
+      warn.style.display='block';
+      warn.innerHTML=`⚠️ <b>LIVE SIS DATA INCOMPLETE</b> — Expected: ${fmt(v.expected_schools||0)} schools • Collected: ${fmt(v.collected_schools||rows.length)} • Missing: ${fmt(v.missing_schools||0)} • Errors: ${fmt(v.error_count||0)}. Data is shown without filling failed schools with fake zero values.`;
+      document.getElementById('status').textContent=`⚠ Live SIS loaded: ${fmt(rows.length)} school records — INCOMPLETE`;
+      status.textContent=' ⚠ Live • INCOMPLETE';
+    }else{
+      warn.style.display='none';
+      document.getElementById('status').textContent=`✓ Live SIS data loaded: ${fmt(rows.length)} school records — COMPLETE.`;
+      status.textContent=' ✓ Live • COMPLETE';
+    }
+    fillFilters();renderDashboard();
+  }catch(err){
+    status.textContent=' ⚠ Live data unavailable';
+    document.getElementById('status').textContent='Live data error: '+err.message+' — click Update Live Data to run SIS collection.';
+  }
+}
+document.getElementById('updateBtn').onclick=()=>{ window.open(GITHUB_ACTION_URL,'_blank','noopener'); };
+document.getElementById('refreshBtn').onclick=loadLiveData;
+window.addEventListener('load',loadLiveData);
+setInterval(loadLiveData,10*60*1000);
+
+['search','tehsilFilter','markazFilter','wingFilter','attendanceType'].forEach(id=>document.getElementById(id).addEventListener('input',renderDashboard));
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');currentView=b.dataset.view;renderTable();}));
+
+document.getElementById('clearBtn').onclick=()=>{document.getElementById('search').value='';['tehsilFilter','markazFilter','wingFilter'].forEach(id=>document.getElementById(id).value='');document.getElementById('attendanceType').value='both';renderDashboard();};
+
+function downloadRows(){
+ const td=tableFor(filtered()), total=pdfTotals(td);
+ const aoa=[td.headers,...td.data,total], ws=XLSX.utils.aoa_to_sheet(aoa);
+ ws['!cols']=td.headers.map(()=>({wch:8}));
+ ws['!rows']=aoa.map((_,i)=>({hpt:i===0?36:45}));
+ for(let r=0;r<aoa.length;r++) for(let c=0;c<td.headers.length;c++){
+   const a=XLSX.utils.encode_cell({r,c}); if(!ws[a]) continue;
+   ws[a].s={alignment:{horizontal:'center',vertical:'center',wrapText:true},font:{name:'Arial',sz:9,bold:r===0||r===aoa.length-1}};
+   if(r===0)ws[a].s.fill={fgColor:{rgb:'EAF2FB'}};
+   if(r===aoa.length-1)ws[a].s.fill={fgColor:{rgb:'DDE8F5'}};
+ }
+ ws['!freeze']={xSplit:0,ySplit:1};
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'Attendance Report');
+ XLSX.writeFile(wb,`Attendance_${safe(td.title)}_${reportDate||new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function pdfTotals(td){
+ const h=td.headers, rows=td.data, ix=n=>h.indexOf(n), sum=n=>{const i=ix(n);return i<0?0:rows.reduce((s,r)=>s+num(r[i]),0)};
+ const row=new Array(h.length).fill(''); row[0]='GRAND TOTAL';
+ const put=(n,v)=>{const i=ix(n);if(i>=0)row[i]=v};
+ if(ix('Schools')>=0)put('Schools',rows.length);
+ const tt=sum('Total Teachers'),tp=sum('Teachers Present');
+ put('Total Teachers',tt);put('Teachers Present',tp);put('Teachers Absent',sum('Teachers Absent'));put('Teachers Unmarked',sum('Teachers Unmarked'));
+ if(ix('Teachers %')>=0)put('Teachers %',(tt?100*tp/tt:0).toFixed(1)+'%');
+ const st=sum('Total Students'),sp=sum('Students Present');
+ put('Total Students',st);put('Students Present',sp);put('Students Absent',sum('Students Absent'));put('Students Unmarked',sum('Students Unmarked'));
+ if(ix('Students %')>=0)put('Students %',(st?100*sp/st:0).toFixed(1)+'%');
+ return row;
+}
+
+document.getElementById('excelBtn').onclick=downloadRows;
+
+document.getElementById('pdfBtn').onclick=()=>{
+  const td=tableFor(filtered()), total=pdfTotals(td);
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
+  const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+  const margin=24, bodyW=W-(margin*2);
+  const f=filtered();
+
+  // ---------- CLEAR SUMMARY PAGE ----------
+  const summary=f.reduce((a,r)=>{
+    ['tp','ta','tu','tt','sp','sa','su','st','sm'].forEach(k=>a[k]+=r[k]);
+    a.schools++;
+    return a;
+  },{schools:0,tp:0,ta:0,tu:0,tt:0,sp:0,sa:0,su:0,st:0,sm:0});
+
+  const teacherPct=summary.tt?100*summary.tp/summary.tt:0;
+  const studentPct=summary.st?100*summary.sp/summary.st:0;
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(18);
+  doc.setTextColor(20,32,51);
+  doc.text('Attendance Summary',W/2,36,{align:'center'});
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.setTextColor(90,103,120);
+  doc.text(
+    `${td.title}  •  ${summary.schools.toLocaleString()} schools  •  ${reportDate?'Report date: '+reportDate+'  •  ':''}Generated: ${new Date().toLocaleString()}`,
+    W/2,52,{align:'center'}
+  );
+
+  const cards=[
+    ['Schools',fmt(summary.schools),''],
+    ['Total Teachers',fmt(summary.tt),'Present + Absent + Unmarked'],
+    ['Teacher Present',fmt(summary.tp),teacherPct.toFixed(1)+'% of total'],
+    ['Teacher Absent',fmt(summary.ta),''],
+    ['Teacher Unmarked',fmt(summary.tu),''],
+    ['Total Students',fmt(summary.st),'Present + Absent + Unmarked'],
+    ['Student Present',fmt(summary.sp),studentPct.toFixed(1)+'% of total'],
+    ['Student Absent',fmt(summary.sa),''],
+    ['Student Unmarked',fmt(summary.su),'']
+  ];
+
+  const gap=10, cardW=(bodyW-gap*4)/5, cardH=64, y1=76, y2=y1+cardH+gap;
+  cards.forEach((c,i)=>{
+    const row=i<5?0:1, col=i<5?i:i-5;
+    const x=margin+col*(cardW+gap), y=row?y2:y1;
+    doc.setFillColor(248,251,255);
+    doc.setDrawColor(210,220,232);
+    doc.roundedRect(x,y,cardW,cardH,6,6,'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(80,96,116);
+    doc.text(c[0],x+9,y+17);
+    doc.setFontSize(17); doc.setTextColor(20,32,51);
+    doc.text(c[1],x+9,y+39);
+    if(c[2]){
+      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(102,112,133);
+      doc.text(c[2],x+9,y+53);
+    }
+  });
+
+  const boxY=y2+cardH+22, boxGap=14, boxW=(bodyW-boxGap)/2, boxH=110;
+  [
+    {
+      x:margin,title:'Teacher Attendance',
+      values:[
+        ['Present',fmt(summary.tp)],
+        ['Absent',fmt(summary.ta)],
+        ['Unmarked',fmt(summary.tu)],
+        ['Attendance %',teacherPct.toFixed(1)+'%']
+      ]
+    },
+    {
+      x:margin+boxW+boxGap,title:'Student Attendance',
+      values:[
+        ['Present',fmt(summary.sp)],
+        ['Absent',fmt(summary.sa)],
+        ['Unmarked',fmt(summary.su)],
+        ['Attendance %',studentPct.toFixed(1)+'%']
+      ]
+    }
+  ].forEach(box=>{
+    doc.setFillColor(255,255,255); doc.setDrawColor(210,220,232);
+    doc.roundedRect(box.x,boxY,boxW,boxH,6,6,'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,32,51);
+    doc.text(box.title,box.x+12,boxY+20);
+    box.values.forEach((v,i)=>{
+      const yy=boxY+40+i*16;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(95,105,120);
+      doc.text(v[0],box.x+12,yy);
+      doc.setFont('helvetica','bold'); doc.setTextColor(20,32,51);
+      doc.text(v[1],box.x+boxW-12,yy,{align:'right'});
+    });
+  });
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(105,115,130);
+  doc.text('Detail report follows on the next page. All Teacher and Student attendance columns are retained.',W/2,H-28,{align:'center'});
+  doc.text('Page 1',W-margin,H-12,{align:'right'});
+
+  // ---------- DETAIL TABLE ----------
+  doc.addPage();
+
+  // Explicit line breaks make long headings readable without shrinking the table.
+  const head=td.headers.map(h=>{
+    const map={
+      'Total Teachers':'Total\\nTeachers',
+      'Teachers Present':'Teachers\\nPresent',
+      'Teachers Absent':'Teachers\\nAbsent',
+      'Teachers Unmarked':'Teachers\\nUnmarked',
+      'Total Students':'Total\\nStudents',
+      'Students Present':'Students\\nPresent',
+      'Students Absent':'Students\\nAbsent',
+      'Students Unmarked':'Students\\nUnmarked',
+      'Teachers %':'Teachers\\n%',
+      'Students %':'Students\\n%',
+      'School':'School',
+      'Markaz':'Markaz',
+      'Tehsil':'Tehsil',
+      'Wing':'Wing',
+      'EMIS':'EMIS'
+    };
+    return map[h]||h;
+  });
+
+  const body=[...td.data,total];
+
+  // Optimized A4-landscape widths. Text columns get more room; numeric columns stay aligned.
+  const widths=td.headers.map(h=>{
+    if(h==='School') return 118;
+    if(h==='Tehsil') return 54;
+    if(h==='Markaz') return 64;
+    if(h==='Wing') return 42;
+    if(h==='EMIS') return 46;
+    if(h==='Schools') return 34;
+    if(h.includes('%')) return 42;
+    if(h.includes('Unmarked')) return 43;
+    if(h.includes('Present')||h.includes('Absent')) return 43;
+    if(h.includes('Total')) return 44;
+    return 40;
+  });
+  const totalWidth=widths.reduce((a,b)=>a+b,0);
+  const scale=bodyW/totalWidth;
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.setTextColor(20,32,51);
+  doc.text(td.title,W/2,24,{align:'center'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(90,103,120);
+  doc.text(
+    `${body.length-1} rows  •  ${reportDate?'Report date: '+reportDate+'  •  ':''}Teacher + Student attendance detail`,
+    W/2,36,{align:'center'}
+  );
+
+  doc.autoTable({
+    head:[head],
+    body,
+    startY:46,
+    margin:{left:margin,right:margin,top:46,bottom:20},
+    tableWidth:bodyW,
+    columnStyles:Object.fromEntries(widths.map((w,i)=>[i,{cellWidth:w*scale}])),
+    styles:{
+      font:'helvetica',
+      fontSize:7.2,
+      cellPadding:{top:4.2,bottom:4.2,left:3,right:3},
+      overflow:'linebreak',
+      valign:'middle',
+      halign:'center',
+      lineWidth:.25,
+      lineColor:[185,194,205],
+      textColor:[20,32,51],
+      minCellHeight:22
+    },
+    headStyles:{
+      fontSize:7.1,
+      fontStyle:'bold',
+      fillColor:[234,242,251],
+      textColor:[20,32,51],
+      halign:'center',
+      valign:'middle',
+      cellPadding:{top:5,bottom:5,left:2.5,right:2.5},
+      minCellHeight:30
+    },
+    alternateRowStyles:{fillColor:[250,252,255]},
+    rowPageBreak:'avoid',
+    showHead:'everyPage',
+    didParseCell:d=>{
+      if(d.row.index===body.length-1){
+        d.cell.styles.fontStyle='bold';
+        d.cell.styles.fillColor=[221,232,245];
+        d.cell.styles.lineWidth=.4;
+      }
+      const hh=td.headers[d.column.index]||'';
+      const n=parseFloat(String(d.cell.raw??''));
+      if(d.section==='body' && hh.includes('%') && Number.isFinite(n)){
+        d.cell.styles.textColor=n>=90?[8,127,91]:n<70?[201,42,42]:[178,106,0];
+        d.cell.styles.fontStyle='bold';
+      }
+      if(d.column.index===0 && d.section==='body'){
+        d.cell.styles.halign='left';
+      }
+    },
+    didDrawPage:d=>{
+      const page=doc.getNumberOfPages();
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(105,115,130);
+      doc.text(`Page ${page}`,W-margin,H-8,{align:'right'});
+      doc.text('Teacher + Student attendance detail • Grand Total included',margin,H-8);
+    }
+  });
+
+  doc.save(`Attendance_${safe(td.title)}_${reportDate||new Date().toISOString().slice(0,10)}.pdf`);
+};
+</script>
+</body>
+</html>
