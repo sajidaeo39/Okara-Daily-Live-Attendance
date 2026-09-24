@@ -28,7 +28,7 @@ jobs:
 
       - name: Collect live SIS attendance
         run: |
-          python attendance_collector.py --github-data
+          python attendance_collector.py --github-data data.json
 
       - name: Commit updated data
         run: |
