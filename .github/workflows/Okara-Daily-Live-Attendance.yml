@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   schedule:
     # Daily around 02:05 Pakistan Standard Time (Asia/Karachi).
-    # A few minutes after the hour helps avoid GitHub's top-of-hour load.
     - cron: '5 2 * * *'
       timezone: 'Asia/Karachi'
 
@@ -29,9 +28,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          # Do not use setup-python dependency caching here.
-          # The repository has no requirements.txt / pyproject.toml.
-          cache: false
+          # No cache option: setup-python cache expects a dependency manifest.
 
       - name: Install dependencies
         run: |
@@ -79,7 +76,7 @@ jobs:
       - name: Strictly validate live data before publish
         run: |
           python - <<'PY'
-          import json, math, sys
+          import json, math
 
           REQUIRED = [
               'School','EMIS','Teacher Present','Teacher Absent','Teacher Unmarked','Teacher Total',
@@ -115,7 +112,6 @@ jobs:
               missing = [k for k in REQUIRED if k not in r]
               if missing:
                   raise SystemExit(f'ERROR: row {i} missing fields: {missing}')
-
               school = str(r.get('School') or '').strip()
               sid = str(r.get('School ID') or r.get('EMIS') or school).strip()
               if not school:
@@ -123,13 +119,11 @@ jobs:
               if sid in seen:
                   raise SystemExit(f'ERROR: duplicate school identifier at row {i}: {sid}')
               seen.add(sid)
-
               try:
                   tp, ta, tu, tt = [n(r[k]) for k in ['Teacher Present','Teacher Absent','Teacher Unmarked','Teacher Total']]
                   sp, sa, su, st = [n(r[k]) for k in ['Student Present','Student Absent','Student Unmarked','Student Total']]
               except ValueError as e:
                   raise SystemExit(f'ERROR: row {i} ({school}): {e}')
-
               if abs((tp + ta + tu) - tt) > 0.01:
                   raise SystemExit(f'ERROR: teacher totals do not reconcile at row {i} ({school}).')
               if sp + sa > st + 0.01:
