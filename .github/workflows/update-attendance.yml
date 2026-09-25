@@ -1,0 +1,151 @@
+name: Update Okara Attendance V28
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily around 02:05 Pakistan Standard Time (Asia/Karachi).
+    # A few minutes after the hour helps avoid GitHub's top-of-hour load.
+    - cron: '5 2 * * *'
+      timezone: 'Asia/Karachi'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: okara-attendance-live
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests openpyxl
+
+      - name: Collect SIS attendance V28 (retry if needed)
+        shell: bash
+        run: |
+          set -u
+          for attempt in 1 2 3; do
+            echo "SIS collection attempt ${attempt}/3"
+            python attendance_collector.py --github-data data.json || true
+
+            if python - <<'PY'
+          import json
+          try:
+              with open('data.json', encoding='utf-8') as f:
+                  p = json.load(f)
+              v = p.get('validation', {})
+              print('Collector status:', v.get('status'))
+              print('Expected:', v.get('expected_schools'))
+              print('Collected:', v.get('collected_schools'))
+              print('Missing:', v.get('missing_schools'))
+              print('Errors:', v.get('error_count'))
+              raise SystemExit(0 if v.get('status') == 'COMPLETE' else 1)
+          except Exception as e:
+              print('Collector output could not be validated:', e)
+              raise SystemExit(1)
+          PY
+            then
+              echo 'SIS collection is COMPLETE.'
+              break
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              echo 'Collection was not complete. Waiting 20 seconds before retry...'
+              sleep 20
+            else
+              echo 'All SIS collection attempts failed to produce COMPLETE data.'
+              exit 1
+            fi
+          done
+
+      - name: Strictly validate live data before publish
+        run: |
+          python - <<'PY'
+          import json, math, sys
+
+          REQUIRED = [
+              'School','EMIS','Teacher Present','Teacher Absent','Teacher Unmarked','Teacher Total',
+              'Student Present','Student Absent','Student Unmarked','Student Total'
+          ]
+
+          def n(v):
+              if v is None or v == '':
+                  raise ValueError('missing numeric value')
+              x = float(v)
+              if not math.isfinite(x) or x < 0:
+                  raise ValueError(f'invalid numeric value: {v!r}')
+              return x
+
+          with open('data.json', encoding='utf-8') as f:
+              p = json.load(f)
+
+          v = p.get('validation', {})
+          rows = p.get('rows')
+          if not isinstance(rows, list) or not rows:
+              raise SystemExit('ERROR: data.json rows is empty.')
+          if v.get('status') != 'COMPLETE':
+              raise SystemExit(f"ERROR: validation status is {v.get('status')!r}, not COMPLETE.")
+          if v.get('expected_schools') is not None and v.get('collected_schools') != v.get('expected_schools'):
+              raise SystemExit('ERROR: collected school count does not equal expected school count.')
+          if v.get('missing_schools', 0) not in (0, None):
+              raise SystemExit('ERROR: missing schools reported by collector.')
+          if v.get('error_count', 0) not in (0, None):
+              raise SystemExit('ERROR: collector reported school/API errors.')
+
+          seen = set()
+          for i, r in enumerate(rows, 1):
+              missing = [k for k in REQUIRED if k not in r]
+              if missing:
+                  raise SystemExit(f'ERROR: row {i} missing fields: {missing}')
+
+              school = str(r.get('School') or '').strip()
+              sid = str(r.get('School ID') or r.get('EMIS') or school).strip()
+              if not school:
+                  raise SystemExit(f'ERROR: row {i} has no school name.')
+              if sid in seen:
+                  raise SystemExit(f'ERROR: duplicate school identifier at row {i}: {sid}')
+              seen.add(sid)
+
+              try:
+                  tp, ta, tu, tt = [n(r[k]) for k in ['Teacher Present','Teacher Absent','Teacher Unmarked','Teacher Total']]
+                  sp, sa, su, st = [n(r[k]) for k in ['Student Present','Student Absent','Student Unmarked','Student Total']]
+              except ValueError as e:
+                  raise SystemExit(f'ERROR: row {i} ({school}): {e}')
+
+              if abs((tp + ta + tu) - tt) > 0.01:
+                  raise SystemExit(f'ERROR: teacher totals do not reconcile at row {i} ({school}).')
+              if sp + sa > st + 0.01:
+                  raise SystemExit(f'ERROR: student present+absent exceeds total at row {i} ({school}).')
+              if abs((sp + sa + su) - st) > 0.01:
+                  raise SystemExit(f'ERROR: student totals do not reconcile at row {i} ({school}).')
+
+          print(f'PASS: {len(rows)} schools validated with complete, unique, internally consistent attendance data.')
+          PY
+
+      - name: Commit live data
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data.json
+          if git diff --cached --quiet; then
+            echo 'No data changes to commit.'
+          else
+            git commit -m 'Update Okara live attendance V28'
+            git push
+          fi
