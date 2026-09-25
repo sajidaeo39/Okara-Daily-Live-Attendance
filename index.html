@@ -8,12 +8,12 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <style>
-:root{--blue:#1457a6;--blue2:#0d3d78;--green:#087f5b;--red:#c92a2a;--amber:#b26a00;--ink:#172033;--muted:#667085;--line:#dbe2ea;--bg:#f4f7fb;--white:#fff}
+:root{--blue:#315b7d;--blue2:#19364f;--green:#087f5b;--red:#c92a2a;--amber:#9a6700;--ink:#1d2b3a;--muted:#6b7787;--line:#e1e8ef;--bg:#f5f8fc;--white:#fff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Segoe UI,Arial,sans-serif;color:var(--ink)}
-header{background:linear-gradient(135deg,var(--blue2),var(--blue));color:#fff;padding:20px 0}
-.wrap{max-width:1500px;margin:auto;padding:0 18px}h1{margin:0;font-size:25px}header p{margin:5px 0 0;opacity:.9;font-size:13px}
-#app{display:none}.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
-.card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px;box-shadow:0 2px 8px #00000008}.label{font-size:11px;color:var(--muted)}.num{font-size:21px;font-weight:750;margin-top:4px}.sub{font-size:10px;color:var(--muted);margin-top:3px}
+header{background:linear-gradient(120deg,#18344d 0%,#285574 58%,#356b83 100%);color:#fff;padding:19px 0;box-shadow:0 3px 14px #17344d18}
+.wrap{max-width:1500px;margin:auto;padding:0 18px}h1{margin:0;font-size:25px;font-weight:750;letter-spacing:.15px}header p{margin:7px 0 0;color:#e6eff6;opacity:1;font-size:12px;letter-spacing:.2px}.byline{font-weight:600;color:#fff!important;font-size:13px!important;margin-top:8px!important}
+#app{display:none}.cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.card{background:#fdfefe;border:1px solid #e3eaf2;border-radius:9px;padding:9px 10px;box-shadow:0 1px 4px #17344d06;min-width:0}.label{font-size:10px;color:#65758a;font-weight:600;letter-spacing:.12px}.num{font-size:19px;line-height:1.15;font-weight:750;color:#243f58;margin-top:4px}.sub{font-size:9px;color:#8793a2;margin-top:3px;line-height:1.3}
 .tabs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.tab{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:8px 11px;font-weight:650;cursor:pointer}.tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .toolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);padding:10px;border-radius:11px;margin-bottom:10px}
 .toolbar input,.toolbar select{padding:8px 9px;border:1px solid #cbd5e1;border-radius:7px;background:#fff}.toolbar input{min-width:250px}
@@ -56,8 +56,8 @@ table{border-collapse:collapse;width:100%;font-size:11px;table-layout:auto}th,td
 </head>
 <body>
 <header><div class="wrap">
-<h1>Teacher & Student Attendance Dashboard</h1>
-<p>Live SIS attendance dashboard — data is refreshed automatically from the latest GitHub Actions JSON.</p>
+<h1>Teacher &amp; Student Attendance Dashboard</h1>
+<p class="byline">Developed by M.Sajid AEO Amli Moti (W) Depalpur</p>
 </div></header>
 
 <div class="wrap">
@@ -104,6 +104,11 @@ const LIVE_DATA_URL='data.json';
 const num=(v)=>{ if(v===null||v===undefined||v==='') return 0; const n=Number(v); return Number.isFinite(n)?n:0; };
 const fmt=(n)=>Number(n||0).toLocaleString('en-US');
 const pct=(p,t)=>t>0?Math.round(p/t*1000)/10:0;
+function formatPKT(value=new Date()){
+ const d=new Date(value);
+ if(Number.isNaN(d.getTime())) return '—';
+ return new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Karachi',month:'short',day:'2-digit',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(d);
+}
 const safe=(s)=>String(s??'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,'_').replace(/_+/g,'_');
 const esc=(s)=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
@@ -227,7 +232,7 @@ function renderTable(){
     return `<td class="${cls}">${typeof v==='number'?fmt(v):esc(v)}</td>`;
    }).join('')+'</tr>';
  }).join(''):`<tr><td colspan="${td.headers.length}" class="empty">No records found.</td></tr>`;
- document.getElementById('info').textContent=`${td.title} • ${td.data.length.toLocaleString()} rows • ${reportDate?'Report date: '+reportDate:''}`;
+ document.getElementById('info').textContent=`${td.title} • ${td.data.length.toLocaleString()} rows • ${reportDate?'Data updated: '+reportDate+' PKT':''}`;
 }
 
 function renderDashboard(){
@@ -262,7 +267,7 @@ async function loadLiveData(){
     const payload=await res.json();
     if(!Array.isArray(payload.rows)) throw new Error('data.json has no rows array');
     rows=payload.rows.map(normalize).filter(r=>r.school||r.emis);
-    reportDate=payload.generated_at?new Date(payload.generated_at).toLocaleString():'';
+    reportDate=payload.generated_at?formatPKT(payload.generated_at):'';
     document.getElementById('app').style.display='block';
     const v=payload.validation||{};
     const warn=document.getElementById('warning');
@@ -348,7 +353,7 @@ document.getElementById('pdfBtn').onclick=()=>{
   doc.setFontSize(9);
   doc.setTextColor(90,103,120);
   doc.text(
-    `${td.title}  •  ${summary.schools.toLocaleString()} schools  •  ${reportDate?'Report date: '+reportDate+'  •  ':''}Generated: ${new Date().toLocaleString()}`,
+    `${td.title}  •  ${summary.schools.toLocaleString()} schools  •  ${reportDate?'Data updated: '+reportDate+' PKT  •  ':''}Report generated: ${formatPKT(new Date())} PKT`,
     W/2,52,{align:'center'}
   );
 
@@ -471,7 +476,7 @@ document.getElementById('pdfBtn').onclick=()=>{
   doc.setFontSize(7.5);
   doc.setTextColor(90,103,120);
   doc.text(
-    `${body.length-1} rows  •  ${reportDate?'Report date: '+reportDate+'  •  ':''}Teacher + Student attendance detail`,
+    `${body.length-1} rows  •  ${reportDate?'Data updated: '+reportDate+' PKT  •  ':''}Teacher + Student attendance detail`,
     W/2,36,{align:'center'}
   );
 
