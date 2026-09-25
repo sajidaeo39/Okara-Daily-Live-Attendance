@@ -12,7 +12,6 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Segoe UI,Arial,sans-serif;color:var(--ink)}
 header{background:linear-gradient(135deg,var(--blue2),var(--blue));color:#fff;padding:20px 0}
 .wrap{max-width:1500px;margin:auto;padding:0 18px}h1{margin:0;font-size:25px}header p{margin:5px 0 0;opacity:.9;font-size:13px}
-.livebox{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0;box-shadow:0 2px 8px #0000000b}.hint{font-size:12px;color:var(--muted);margin-top:7px}.status{font-size:12px;margin-top:8px;font-weight:600}
 #app{display:none}.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
 .card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px;box-shadow:0 2px 8px #00000008}.label{font-size:11px;color:var(--muted)}.num{font-size:21px;font-weight:750;margin-top:4px}.sub{font-size:10px;color:var(--muted);margin-top:3px}
 .tabs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.tab{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:8px 11px;font-weight:650;cursor:pointer}.tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
@@ -30,7 +29,7 @@ table{border-collapse:collapse;width:100%;font-size:11px;table-layout:auto}th,td
 @media print{
  @page{size:A4 landscape;margin:7mm 7mm 8mm 7mm}
  html,body{background:#fff!important}
- header,.livebox,.tabs,.toolbar,#warning,.cards{display:none!important}
+ header,.tabs,.toolbar,#warning,.cards{display:none!important}
  .wrap{max-width:none;padding:0}
  #app{display:block!important}
  .pdf-only{display:block}
@@ -62,15 +61,6 @@ table{border-collapse:collapse;width:100%;font-size:11px;table-layout:auto}th,td
 </div></header>
 
 <div class="wrap">
-<div class="livebox">
-<b>🌐 Live SIS Attendance</b><br>
-<button class="action" id="updateBtn">↻ Update Live Data</button>
-<button class="action secondary" id="refreshBtn">⟳ Refresh Dashboard</button>
-<span id="liveStatus" class="status"></span>
-<div class="hint">Live data is collected from SIS by GitHub Actions. <b>Update Live Data</b> opens the repository workflow so you can start a fresh SIS collection. No Excel upload is used.</div>
-<div id="status" class="status"></div>
-</div>
-
 <div id="app">
 <div id="cards" class="cards"></div>
 
@@ -80,8 +70,8 @@ table{border-collapse:collapse;width:100%;font-size:11px;table-layout:auto}th,td
 <button class="tab" data-view="tehsil">Tehsil Wise</button>
 <button class="tab" data-view="wing">Wing Wise</button>
 <button class="tab" data-view="zero">Zero Progress Schools</button>
-<button class="tab" data-view="teachers">Teacher Report</button>
-<button class="tab" data-view="students">Student Report</button>
+<button class="tab" data-view="zeroTeacher">Zero Teacher Attendance</button>
+<button class="tab" data-view="zeroStudent">Zero Students Attendance</button>
 </div>
 
 <div class="toolbar">
@@ -110,7 +100,6 @@ table{border-collapse:collapse;width:100%;font-size:11px;table-layout:auto}th,td
 <script>
 let rows=[], currentView='school', reportDate='';
 const LIVE_DATA_URL='data.json';
-const GITHUB_ACTION_URL='https://github.com/sajidaeo39/Okara-Live-Attendance/actions/workflows/update-attendance.yml';
 
 const num=(v)=>{ if(v===null||v===undefined||v==='') return 0; const n=Number(v); return Number.isFinite(n)?n:0; };
 const fmt=(n)=>Number(n||0).toLocaleString('en-US');
@@ -205,22 +194,25 @@ function tableFor(f){
    data:sortAggregatesForPerformance(aggregate(f,field)).map(a=>[a.name,a.schools,a.tt,a.tp,a.ta,a.tu,pct(a.tp,a.tt).toFixed(1)+'%',a.st,a.sp,a.sa,a.su,pct(a.sp,a.st).toFixed(1)+'%'])
   };
  }
- if(currentView==='zero'){
-  const a=f.filter(r=>(r.tt>0 || r.st>0) && r.tp===0 && r.sp===0);
-  return {title:'Zero Progress Schools',
+ if(currentView==='zero' || currentView==='zeroTeacher' || currentView==='zeroStudent'){
+  let a=f;
+  let title='Zero Progress Schools';
+  if(currentView==='zeroTeacher'){
+   a=f.filter(r=>r.tt>0 && r.tp===0);
+   title='Zero Teacher Attendance';
+  } else if(currentView==='zeroStudent'){
+   a=f.filter(r=>r.st>0 && r.sp===0);
+   title='Zero Students Attendance';
+  } else {
+   a=f.filter(r=>(r.tt>0 || r.st>0) && r.tp===0 && r.sp===0);
+  }
+  return {title,
    headers:['School','EMIS','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
    data:a.sort((x,y)=>String(x.school).localeCompare(String(y.school))).map(r=>[r.school,r.emis,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%',r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])};
  }
- if(currentView==='teachers') return {
-  title:'Teacher Attendance Report',
-  headers:['School','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %'],
-  data:sortForPerformance(f).map(r=>[r.school,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%'])
- };
- return {
-  title:'Student Attendance Report',
-  headers:['School','Tehsil','Markaz','Wing','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
-  data:sortForPerformance(f).map(r=>[r.school,r.tehsil,r.markaz,r.wing,r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])
- };
+ return {title:'School Wise Attendance',
+  headers:['School','EMIS','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
+  data:sortForPerformance(f).map(r=>[r.school,r.emis,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%',r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])};
 }
 function renderTable(){
  const f=filtered(), td=tableFor(f);
@@ -238,7 +230,19 @@ function renderTable(){
  document.getElementById('info').textContent=`${td.title} • ${td.data.length.toLocaleString()} rows • ${reportDate?'Report date: '+reportDate:''}`;
 }
 
-function renderDashboard(){renderCards();renderTable(); const z=document.querySelector('.tab[data-view=\"zero\"]'); if(z){const n=filtered().filter(r=>(r.tt>0||r.st>0)&&r.tp===0&&r.sp===0).length; z.textContent='Zero Progress Schools'+(n?' ('+n+')':'');}}
+function renderDashboard(){
+ renderCards();renderTable();
+ const f=filtered();
+ const counts={
+  zero:f.filter(r=>(r.tt>0||r.st>0)&&r.tp===0&&r.sp===0).length,
+  zeroTeacher:f.filter(r=>r.tt>0&&r.tp===0).length,
+  zeroStudent:f.filter(r=>r.st>0&&r.sp===0).length
+ };
+ [['zero','Zero Progress Schools'],['zeroTeacher','Zero Teacher Attendance'],['zeroStudent','Zero Students Attendance']].forEach(([view,label])=>{
+  const el=document.querySelector('.tab[data-view="'+view+'"]');
+  if(el) el.textContent=label+(counts[view]?' ('+counts[view]+')':'');
+ });
+}
 
 function fillFilters(){
  const fill=(id,vals,label)=>{const el=document.getElementById(id);const old=el.value;el.innerHTML=`<option value="">${label}</option>`+[...new Set(vals.filter(Boolean))].sort().map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');if([...el.options].some(o=>o.value===old))el.value=old;};
@@ -248,9 +252,10 @@ function fillFilters(){
 }
 
 
+let loadingLiveData=false;
 async function loadLiveData(){
-  const status=document.getElementById('liveStatus');
-  status.textContent=' Loading live SIS data...';
+  if(loadingLiveData) return;
+  loadingLiveData=true;
   try{
     const res=await fetch(LIVE_DATA_URL+'?t='+Date.now(),{cache:'no-store'});
     if(!res.ok) throw new Error('HTTP '+res.status);
@@ -263,29 +268,20 @@ async function loadLiveData(){
     const warn=document.getElementById('warning');
     if(v.status==='PENDING'){
       warn.style.display='block';
-      warn.innerHTML=`ℹ️ <b>LIVE SIS DATA NOT UPDATED YET</b> — click <b>Update Live Data</b> to start the GitHub Action and collect fresh SIS attendance.`;
-      document.getElementById('status').textContent='Waiting for first live SIS update.';
-      status.textContent=' ⏳ Waiting for live update';
+      warn.innerHTML=`ℹ️ <b>LIVE SIS DATA NOT UPDATED YET</b> — the daily SIS collection has not produced a new dataset yet.`;
     }else if(v.status==='INCOMPLETE'){
       warn.style.display='block';
       warn.innerHTML=`⚠️ <b>LIVE SIS DATA INCOMPLETE</b> — Expected: ${fmt(v.expected_schools||0)} schools • Collected: ${fmt(v.collected_schools||rows.length)} • Missing: ${fmt(v.missing_schools||0)} • Errors: ${fmt(v.error_count||0)}. Data is shown without filling failed schools with fake zero values.`;
-      document.getElementById('status').textContent=`⚠ Live SIS loaded: ${fmt(rows.length)} school records — INCOMPLETE`;
-      status.textContent=' ⚠ Live • INCOMPLETE';
     }else{
       warn.style.display='none';
-      document.getElementById('status').textContent=`✓ Live SIS data loaded: ${fmt(rows.length)} school records — COMPLETE.`;
-      status.textContent=' ✓ Live • COMPLETE';
     }
     fillFilters();renderDashboard();
   }catch(err){
-    status.textContent=' ⚠ Live data unavailable';
-    document.getElementById('status').textContent='Live data error: '+err.message+' — click Update Live Data to run SIS collection.';
+    console.error('Live data unavailable:', err);
   }
 }
-document.getElementById('updateBtn').onclick=()=>{ window.open(GITHUB_ACTION_URL,'_blank','noopener'); };
-document.getElementById('refreshBtn').onclick=loadLiveData;
 window.addEventListener('load',loadLiveData);
-setInterval(loadLiveData,10*60*1000);
+setInterval(loadLiveData,30*1000);
 
 ['search','tehsilFilter','markazFilter','wingFilter','attendanceType'].forEach(id=>document.getElementById(id).addEventListener('input',renderDashboard));
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');currentView=b.dataset.view;renderTable();}));
