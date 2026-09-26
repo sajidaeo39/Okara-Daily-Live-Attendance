@@ -1,6 +1,8 @@
 name: Update Okara Attendance
 
 on:
+  push:
+    branches: ["main"]
   schedule:
     # 01:55 UTC = 06:55 Pakistan Standard Time
     - cron: "55 1 * * *"
