@@ -341,7 +341,6 @@ function pdfTotals(td){
  const h=td.headers, rows=td.data, ix=n=>h.indexOf(n), sum=n=>{const i=ix(n);return i<0?0:rows.reduce((s,r)=>s+num(r[i]),0)};
  const row=new Array(h.length).fill(''); row[0]='GRAND TOTAL';
  const put=(n,v)=>{const i=ix(n);if(i>=0)row[i]=v};
- if(ix('Schools')>=0)put('Schools',rows.length);
  const tt=sum('Total Teachers'),tp=sum('Teachers Present');
  put('Total Teachers',tt);put('Teachers Present',tp);put('Teachers Absent',sum('Teachers Absent'));put('Teachers Unmarked',sum('Teachers Unmarked'));
  if(ix('Teachers %')>=0)put('Teachers %',(tt?100*tp/tt:0).toFixed(1)+'%');
