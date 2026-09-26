@@ -190,7 +190,7 @@ function renderCards(){
  ['Students Absent',s.sa,'Absent students'],
  ['Students Unmarked',s.su,'Excluded from student %'],
  ['Student %',sr+'%','Present Students / Total Students']
- ].map(x=>`<div class="card"><div class="label">${x[0]}</div><div class="num">${typeof x[1]==='number'?fmt(x[1]):x[1]}</div><div class="sub">${x[2]}</div></div>`).join('');
+ ].map(x=>`<div class="card"><div class="label">${x[0]}</div><div class="num">${typeof x[1]==='number'?fmt(x[1]):x[1]}</div></div>`).join('');
 }
 
 function sortForPerformance(list){
