@@ -4,10 +4,10 @@ on:
   push:
     branches: ["main"]
   schedule:
-    # 01:55 UTC = 06:55 Pakistan Standard Time
-    - cron: "55 1 * * *"
-    # Backup run: 02:10 UTC = 07:10 Pakistan Standard Time
-    - cron: "10 2 * * *"
+    # 09:55 UTC = 02:55 PM Pakistan Standard Time
+    - cron: "55 9 * * *"
+    # Backup run: 10:10 UTC = 03:10 PM Pakistan Standard Time
+    - cron: "10 10 * * *"
   workflow_dispatch:
 
 permissions:
