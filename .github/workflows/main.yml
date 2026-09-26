@@ -1,1 +1,80 @@
+name: Update Okara Attendance
 
+on:
+  schedule:
+    # 01:55 UTC = 06:55 Pakistan Standard Time
+    - cron: "55 1 * * *"
+    # Backup run: 02:10 UTC = 07:10 Pakistan Standard Time
+    - cron: "10 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: okara-attendance-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install collector packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests openpyxl
+
+      - name: Collect latest SIS attendance
+        run: |
+          python attendance_collector.py --github-data data.json
+
+      - name: Validate live dataset
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("data.json")
+          if not p.exists():
+              raise SystemExit("data.json was not created")
+
+          payload = json.loads(p.read_text(encoding="utf-8"))
+          rows = payload.get("rows")
+          validation = payload.get("validation", {})
+
+          if not isinstance(rows, list):
+              raise SystemExit("data.json rows is not a list")
+
+          print("Validation:", validation)
+          print("Rows:", len(rows))
+
+          if validation.get("status") != "COMPLETE":
+              raise SystemExit("SIS collection is INCOMPLETE; refusing to publish partial attendance data")
+
+          if len(rows) != int(validation.get("expected_schools", 0)):
+              raise SystemExit("Collected row count does not match expected school count")
+
+          print("Dataset validation: COMPLETE")
+          PY
+
+      - name: Commit latest attendance data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          if git diff --cached --quiet; then
+            echo "No data change detected."
+          else
+            git commit -m "Daily Okara attendance update"
+            git push
+          fi
