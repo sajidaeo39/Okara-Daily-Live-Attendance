@@ -18,8 +18,8 @@ header{background:linear-gradient(120deg,#18344d 0%,#285574 58%,#356b83 100%);co
  padding:14px 24px;
  border:1px solid rgba(226,239,248,.42);
  border-radius:13px;
- background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.045));
- box-shadow:0 5px 18px rgba(7,24,40,.15),inset 0 1px 0 rgba(255,255,255,.12);
+ background:transparent;
+ box-shadow:none;
  text-wrap:balance;
 }
 header .byline{margin-top:12px!important}
@@ -40,6 +40,8 @@ header .wrap{text-align:center}header p{margin:7px 0 0;color:#e6eff6;opacity:1;f
 .card:nth-child(6n){background:#f2f0fb;border-left-color:#8c80bd}.card:nth-child(6n) .num{color:#66599c}
 .tabs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.tab{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:8px 11px;font-weight:650;cursor:pointer}.tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .toolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);padding:10px;border-radius:11px;margin-bottom:10px}
+@media(min-width:1101px){.toolbar{flex-wrap:nowrap}.toolbar input{min-width:180px;flex:1 1 210px}.toolbar select{min-width:105px;flex:0 1 auto}.toolbar .action{white-space:nowrap;flex-shrink:0}}
+.header-info{color:#e2edf5!important;font-size:12px;margin:9px 0 0!important;text-align:center;line-height:1.4}
 .toolbar input,.toolbar select{padding:8px 9px;border:1px solid #cbd5e1;border-radius:7px;background:#fff}.toolbar input{min-width:250px}
 .action{border:0;border-radius:7px;padding:8px 11px;background:var(--green);color:#fff;font-weight:650;cursor:pointer}.pdf{background:#b42318}.secondary{background:#475467}
 .note{font-size:12px;color:var(--muted);margin:7px 0 11px}.warning{background:#fff4d6;border:1px solid #f2c66d;color:#704c00;padding:9px 11px;border-radius:9px;margin:8px 0;font-size:12px}
@@ -82,6 +84,7 @@ table{border-collapse:collapse;width:100%;font-size:11px;table-layout:auto}th,td
 <header><div class="wrap">
 <h1 class="dashboard-title">Teacher &amp; Student Attendance Dashboard (District Okara)</h1>
 <p class="byline">Developed by M.Sajid AEO Amli Moti (W) Depalpur</p>
+<div class="note header-info" id="info"></div>
 </div></header>
 
 <div class="wrap">
@@ -106,9 +109,9 @@ table{border-collapse:collapse;width:100%;font-size:11px;table-layout:auto}th,td
 <select id="attendanceType">
 <option value="both">Teacher + Student</option><option value="teacher">Teacher Attendance</option><option value="student">Student Attendance</option>
 </select>
+<button class="action secondary" id="clearBtn">Reset Filters</button>
 <button class="action" id="excelBtn">⬇ Download Excel</button>
 <button class="action pdf" id="pdfBtn">⬇ Download PDF</button>
-<button class="action secondary" id="clearBtn">Reset Filters</button>
 </div>
 
 <div id="warning" class="warning" style="display:none"></div>
@@ -116,7 +119,7 @@ table{border-collapse:collapse;width:100%;font-size:11px;table-layout:auto}th,td
 </div>
 
 <div class="pdf-only" id="pdfHeader"><div id="pdfTitle" style="font-size:15px;font-weight:800;text-align:center;margin-bottom:3px">School Wise Attendance</div><div id="pdfMeta" style="font-size:8px;text-align:center;margin-bottom:7px"></div></div>
-<div class="note" id="info"></div>
+
 <div class="tablebox"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
 </div>
 </div>
