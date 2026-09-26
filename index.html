@@ -10,21 +10,21 @@
 <style>
 :root{--blue:#315b7d;--blue2:#19364f;--green:#087f5b;--red:#c92a2a;--amber:#9a6700;--ink:#1d2b3a;--muted:#6b7787;--line:#e1e8ef;--bg:#f5f8fc;--white:#fff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Segoe UI,Arial,sans-serif;color:var(--ink)}
-header{background:linear-gradient(120deg,#18344d 0%,#285574 58%,#356b83 100%);color:#fff;padding:19px 0;box-shadow:0 3px 14px #17344d18}
-.wrap{max-width:1500px;margin:auto;padding:0 18px}h1{margin:0;font-size:25px;font-weight:750;letter-spacing:.15px}
+header{background:#fff;color:#17344d;padding:10px 0 12px;box-shadow:0 2px 10px rgba(23,52,77,.06);border-bottom:1px solid #e2eaf2}
+.wrap{max-width:1500px;margin:auto;padding:0 18px}h1{margin:0;font-size:24px;font-weight:750;letter-spacing:.15px}
 .dashboard-title{
  text-align:center;line-height:1.25;
  display:block;max-width:1050px;margin:0 auto;
- padding:14px 24px;
- border:1px solid rgba(226,239,248,.42);
- border-radius:13px;
- background:transparent;
- box-shadow:none;
+ padding:11px 22px;
+ border:1px solid #d8e3ed;
+ border-radius:11px;
+ background:#f4f8fc;
+ box-shadow:0 2px 8px rgba(23,52,77,.055);
  text-wrap:balance;
 }
-header .byline{margin-top:12px!important}
+header .byline{margin-top:6px!important}
 @media(max-width:650px){.dashboard-title{padding:11px 12px;font-size:18px!important;border-radius:10px}}
-header .wrap{text-align:center}header p{margin:7px 0 0;color:#e6eff6;opacity:1;font-size:12px;letter-spacing:.2px}.byline{font-weight:600;color:#fff!important;font-size:13px!important;margin-top:8px!important}
+header .wrap{text-align:center}header p{margin:5px 0 0;color:#52657a;opacity:1;font-size:12px;letter-spacing:.2px}.byline{font-weight:600;color:#52657a!important;font-size:12px!important;margin-top:6px!important}
 #app{display:none}.cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:12px}
 .card{background:#fff;border:1px solid #e3eaf2;border-left:4px solid #6d91ad;border-radius:9px;padding:9px 10px;box-shadow:0 2px 7px rgba(25,54,79,.055);min-width:0;transition:box-shadow .15s ease,transform .15s ease}
 .card:hover{box-shadow:0 4px 12px rgba(25,54,79,.09);transform:translateY(-1px)}
