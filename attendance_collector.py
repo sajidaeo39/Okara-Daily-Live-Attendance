@@ -53,9 +53,9 @@ SECONDARY_SCHOOL_IDS = {
 EXCLUDED_SCHOOL_IDS = {"55048"}
 EXCLUDED_EMIS = {"39399999"}
 
-TIMEOUT = 60
-RETRIES = 3
-RETRY_SLEEP = 0.75
+TIMEOUT = 20
+RETRIES = 1
+RETRY_SLEEP = 0.5
 
 
 def clean(v):
@@ -122,7 +122,7 @@ def request(session, path, params=None):
 def get_csrf(session):
     r = session.get(
         BASE + "/dashboard",
-        timeout=max(TIMEOUT, 90),
+        timeout=max(TIMEOUT, 30),
         headers={
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
@@ -273,7 +273,7 @@ def request_post(session, path, payload):
     if csrf:
         headers["X-CSRF-TOKEN"] = str(csrf)
 
-    r = session.post(url, data=payload, headers=headers, timeout=60, allow_redirects=False)
+    r = session.post(url, data=payload, headers=headers, timeout=20, allow_redirects=False)
     if r.status_code == 403:
         raise RuntimeError(
             f"403 Forbidden from {path}; CSRF/session rejected. "
@@ -382,7 +382,7 @@ def get_student_attendance_table(session, tehsil_id, markaz_id, date_from):
             "date_from": date_from,
             "only_kpztp_districts": "false",
         },
-        timeout=max(TIMEOUT, 90),
+        timeout=max(TIMEOUT, 30),
         headers={
             "Accept": "text/html, */*; q=0.01",
             "X-Requested-With": "XMLHttpRequest",
@@ -622,7 +622,7 @@ def main():
                     })
                     worker_local.session.mount(
                         "https://",
-                        HTTPAdapter(max_retries=retry, pool_connections=4, pool_maxsize=4)
+                        HTTPAdapter(max_retries=retry, pool_connections=8, pool_maxsize=8)
                     )
                 return worker_local.session
 
@@ -675,7 +675,7 @@ def main():
                 return row, school_errors
 
             # Run independent school API calls concurrently.
-            max_workers = min(16, max(1, len(schools)))
+            max_workers = min(24, max(1, len(schools)))
             results = [None] * len(schools)
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_map = {
