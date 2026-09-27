@@ -135,9 +135,10 @@ function sortForPerformance(list){
 }
 function sortAggregatesForPerformance(list){
   const type=document.getElementById('attendanceType').value;
+  const dir=document.getElementById('performanceFilter').value==='low'?-1:1;
   return [...list].sort((a,b)=>{
     const rb=rateFor(b,type), ra=rateFor(a,type);
-    if(rb!==ra) return rb-ra;
+    if(rb!==ra) return (rb-ra)*dir;
     return String(a.name||'').localeCompare(String(b.name||''));
   });
 }
@@ -145,14 +146,14 @@ function sortAggregatesForPerformance(list){
 function tableFor(f){
  if(currentView==='school') return {
   title:'School Wise Attendance',
-  headers:['School','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
-  data:sortForPerformance(f).map(r=>[r.school,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%',r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])
+  headers:['No.','School','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
+  data:sortForPerformance(f).map((r,i)=>[i+1,r.school,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%',r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])
  };
  if(currentView==='markaz'||currentView==='tehsil'||currentView==='wing'){
   const field=currentView==='markaz'?'markaz':currentView;
   return {title:currentView[0].toUpperCase()+currentView.slice(1)+' Wise Attendance',
-   headers:[field[0].toUpperCase()+field.slice(1),'Schools','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
-   data:sortAggregatesForPerformance(aggregate(f,field)).map(a=>[a.name,a.schools,a.tt,a.tp,a.ta,a.tu,pct(a.tp,a.tt).toFixed(1)+'%',a.st,a.sp,a.sa,a.su,pct(a.sp,a.st).toFixed(1)+'%'])
+   headers:['No.',field[0].toUpperCase()+field.slice(1),'Schools','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
+   data:sortAggregatesForPerformance(aggregate(f,field)).map((a,i)=>[i+1,a.name,a.schools,a.tt,a.tp,a.ta,a.tu,pct(a.tp,a.tt).toFixed(1)+'%',a.st,a.sp,a.sa,a.su,pct(a.sp,a.st).toFixed(1)+'%'])
   };
  }
  if(currentView==='zero' || currentView==='zeroTeacher' || currentView==='zeroStudent'){
@@ -169,7 +170,7 @@ function tableFor(f){
   }
   return {title,
    headers:['School','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
-   data:a.sort((x,y)=>String(x.school).localeCompare(String(y.school))).map(r=>[r.school,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%',r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])};
+   data:sortForPerformance(a).map((r,i)=>[i+1,r.school,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%',r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])};
  }
  return {title:'School Wise Attendance',
   headers:['School','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
@@ -268,7 +269,7 @@ function downloadRows(){
 
 function pdfTotals(td){
  const h=td.headers, rows=td.data, ix=n=>h.indexOf(n), sum=n=>{const i=ix(n);return i<0?0:rows.reduce((s,r)=>s+num(r[i]),0)};
- const row=new Array(h.length).fill(''); row[h[0]==='No.'?1:0]='GRAND TOTAL';
+ const row=new Array(h.length).fill(''); row[h[0]==='No.'?1:0]='GRAND TOTAL'; if(h[0]==='No.') row[0]='';
  const put=(n,v)=>{const i=ix(n);if(i>=0)row[i]=v};
  const tt=sum('Total Teachers'),tp=sum('Teachers Present');
  put('Total Teachers',tt);put('Teachers Present',tp);put('Teachers Absent',sum('Teachers Absent'));put('Teachers Unmarked',sum('Teachers Unmarked'));
@@ -335,6 +336,7 @@ document.getElementById('pdfBtn').onclick=()=>{
     const headers=td.headers;
     const body=[...td.data,total];
     const widths=headers.map(h=>{
+      if(h==='No.') return 25;
       if(h==='School'||h==='Markaz'||h==='Tehsil'||h==='Wing') return h==='School'?120:58;
       if(h==='Schools') return 38;
       if(h.includes('%')) return 43;
@@ -366,7 +368,7 @@ document.getElementById('pdfBtn').onclick=()=>{
     let page=1;drawTop();drawCards();let y=drawTableHeader(202);
     const drawRow=(row,ri)=>{
       const isTotal=ri===body.length-1;
-      const nameIndex=0;
+      const nameIndex=headers[0]==='No.'?1:0;
       const nameLines=doc.splitTextToSize(String(row[nameIndex]??''),Math.max(45,widths[nameIndex]*scale-8));
       const rowH=Math.max(20,Math.min(34,8+nameLines.length*8));
       if(y+rowH>H-48){footer(page);doc.addPage();page++;drawTop();y=drawTableHeader(96);}
@@ -374,7 +376,7 @@ document.getElementById('pdfBtn').onclick=()=>{
       doc.setDrawColor(...line);doc.setLineWidth(.6);doc.rect(M,y,C,rowH,'FD');
       let x=M;
       row.forEach((v,i)=>{
-        const h=headers[i]||'',n=parseFloat(String(v)),isName=i===0;
+        const h=headers[i]||'',n=parseFloat(String(v)),isName=i===nameIndex;
         doc.setFont('helvetica',isTotal||h.includes('%')?'bold':'normal');doc.setFontSize(6.8);
         if(h.includes('%')&&Number.isFinite(n)) doc.setTextColor(...(n>=90?green:n<70?red:amber)); else doc.setTextColor(...navy);
         const txt=typeof v==='number'?fmt(v):String(v??'');
@@ -392,9 +394,10 @@ document.getElementById('pdfBtn').onclick=()=>{
     const stampNow2=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`};
     const reportLabel2=()=>({school:'School_Wise',markaz:'Markaz_Wise',tehsil:'Tehsil_Wise',wing:'Wing_Wise',zero:'Zero_Progress_Schools',zeroTeacher:'Zero_Teacher_Attendance',zeroStudent:'Zero_Students_Attendance'}[currentView]||'Report');
     const reportSuffix2=()=>{
+      const pf=document.getElementById('performanceFilter').value==='low'?'Low_to_High':'High_to_Low';
       const t=document.getElementById('tehsilFilter').value,w=document.getElementById('wingFilter').value,q=document.getElementById('search').value.trim(),m=document.getElementById('markazFilter').value;
       const p=[];if(t)p.push('Tehsil-'+fileSafe2(t));if(w)p.push('Wing-'+fileSafe2(w));if(m)p.push('Markaz-'+fileSafe2(m));if(q)p.push('Search-'+fileSafe2(q));
-      return `${reportLabel2()}${p.length?'_'+p.join('_'):'_All_Filters'}_${stampNow2()}`;
+      return `${reportLabel2()}_${pf}${p.length?'_'+p.join('_'):'_All_Filters'}_${stampNow2()}`;
     };
     doc.save(reportSuffix2()+'.pdf');
   }catch(err){console.error('PDF export error:',err);alert('PDF generation failed. Please try again.');}
