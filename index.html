@@ -281,221 +281,122 @@ function pdfTotals(td){
 document.getElementById('excelBtn').onclick=downloadRows;
 
 document.getElementById('pdfBtn').onclick=()=>{
-  const td=tableFor(filtered()), total=pdfTotals(td);
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
-  const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
-  const margin=24, bodyW=W-(margin*2);
-  const f=filtered();
+  try{
+    if(!window.jspdf||!window.jspdf.jsPDF) throw new Error('PDF library is not loaded');
+    const {jsPDF}=window.jspdf;
+    const list=filtered(), td=tableFor(list);
+    const total=pdfTotals(td);
+    const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
+    const W=842,H=595,M=28,C=W-2*M;
+    const navy=[25,50,88], light=[244,247,250], line=[185,195,208], green=[31,130,86], red=[190,48,48], amber=[226,177,35], textc=[45,55,68], muted=[92,105,122];
+    const fmt=v=>Number(v||0).toLocaleString('en-US');
+    const unique=a=>[...new Set(a.map(x=>String(x||'').trim()).filter(Boolean))];
+    const tehsils=unique(list.map(r=>r.tehsil)), wings=unique(list.map(r=>r.wing)), markazs=unique(list.map(r=>r.markaz));
+    const parts=['District Okara'];
+    if(wings.length===1) parts.push('Wing: '+wings[0]);
+    if(tehsils.length===1) parts.push('Tehsil: '+tehsils[0]);
+    if(markazs.length===1 && (currentView==='markaz'||currentView==='school'||currentView.startsWith('zero'))) parts.push('Markaz: '+markazs[0]);
+    const viewLabel={school:'School-wise Attendance',markaz:'Markaz-wise Attendance',tehsil:'Tehsil-wise Attendance',wing:'Wing-wise Attendance',zero:'Zero Progress Schools',zeroTeacher:'Zero Teacher Attendance',zeroStudent:'Zero Students Attendance'};
+    parts.push(viewLabel[currentView]||td.title);
+    const contextTitle=parts.join(' | ');
 
-  // ---------- CLEAR SUMMARY PAGE ----------
-  const summary=f.reduce((a,r)=>{
-    ['tp','ta','tu','tt','sp','sa','su','st','sm'].forEach(k=>a[k]+=r[k]);
-    a.schools++;
-    return a;
-  },{schools:0,tp:0,ta:0,tu:0,tt:0,sp:0,sa:0,su:0,st:0,sm:0});
+    const sum=list.reduce((a,r)=>{['tp','ta','tu','tt','sp','sa','su','st','sm'].forEach(k=>a[k]+=r[k]);a.schools++;return a},{schools:0,tp:0,ta:0,tu:0,tt:0,sp:0,sa:0,su:0,st:0,sm:0});
+    const teacherPct=sum.tt?100*sum.tp/sum.tt:0, studentPct=sum.st?100*sum.sp/sum.st:0;
 
-  const teacherPct=summary.tt?100*summary.tp/summary.tt:0;
-  const studentPct=summary.st?100*summary.sp/summary.st:0;
-
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(18);
-  doc.setTextColor(20,32,51);
-  doc.text('Latest SIS Attendance',W/2,36,{align:'center'});
-
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(9);
-  doc.setTextColor(90,103,120);
-  doc.text(
-    `${td.title}  •  ${summary.schools.toLocaleString()} schools  •  ${reportDate?'Data updated: '+reportDate+' PKT  •  ':''}Report generated: ${formatPKT(new Date())} PKT`,
-    W/2,52,{align:'center'}
-  );
-
-  const cards=[
-    
-    ['Total Teachers',fmt(summary.tt),'Present + Absent + Unmarked'],
-    ['Teacher Present',fmt(summary.tp),teacherPct.toFixed(1)+'% of total'],
-    ['Teacher Absent',fmt(summary.ta),''],
-    ['Teacher Unmarked',fmt(summary.tu),''],
-    ['Total Students',fmt(summary.st),'Present + Absent + Unmarked'],
-    ['Student Present',fmt(summary.sp),studentPct.toFixed(1)+'% of total'],
-    ['Student Absent',fmt(summary.sa),''],
-    ['Student Unmarked',fmt(summary.su),'']
-  ];
-
-  const gap=7, cols=5, rowsN=Math.ceil(cards.length/cols), cardW=(bodyW-gap*(cols-1))/cols, cardH=58, y1=76;
-  const fills=[[242,247,251],[242,248,246],[241,248,244],[255,245,242],[255,249,238],[245,243,251]];
-  cards.forEach((c,i)=>{
-    const row=Math.floor(i/cols), col=i%cols;
-    const x=margin+col*(cardW+gap), y=y1+row*(cardH+gap);
-    const fill=fills[i%fills.length];
-    doc.setFillColor(fill[0],fill[1],fill[2]);
-    doc.setDrawColor(214,223,232);
-    doc.setLineWidth(.6);
-    doc.roundedRect(x,y,cardW,cardH,7,7,'FD');
-    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(80,96,116);
-    doc.text(c[0],x+cardW/2,y+17,{align:'center'});
-    doc.setFontSize(16); doc.setTextColor(32,52,72);
-    doc.text(c[1],x+cardW/2,y+38,{align:'center'});
-    if(c[2]){
-      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(102,112,133);
-      doc.text(c[2],x+cardW/2,y+51,{align:'center'});
-    }
-  });
-
-  const boxY=y1+rowsN*(cardH+gap)+16, boxGap=14, boxW=(bodyW-boxGap)/2, boxH=110;
-  [
-    {
-      x:margin,title:'Teacher Attendance',
-      values:[
-        ['Present',fmt(summary.tp)],
-        ['Absent',fmt(summary.ta)],
-        ['Unmarked',fmt(summary.tu)],
-        ['Attendance %',teacherPct.toFixed(1)+'%']
-      ]
-    },
-    {
-      x:margin+boxW+boxGap,title:'Student Attendance',
-      values:[
-        ['Present',fmt(summary.sp)],
-        ['Absent',fmt(summary.sa)],
-        ['Unmarked',fmt(summary.su)],
-        ['Attendance %',studentPct.toFixed(1)+'%']
-      ]
-    }
-  ].forEach(box=>{
-    doc.setFillColor(255,255,255); doc.setDrawColor(210,220,232);
-    doc.roundedRect(box.x,boxY,boxW,boxH,6,6,'FD');
-    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,32,51);
-    doc.text(box.title,box.x+12,boxY+20);
-    box.values.forEach((v,i)=>{
-      const yy=boxY+40+i*16;
-      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(95,105,120);
-      doc.text(v[0],box.x+12,yy);
-      doc.setFont('helvetica','bold'); doc.setTextColor(20,32,51);
-      doc.text(v[1],box.x+boxW-12,yy,{align:'right'});
-    });
-  });
-
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(105,115,130);
-  doc.text('Detail report follows on the next page. All Teacher and Student attendance columns are retained.',W/2,H-28,{align:'center'});
-  doc.text('Page 1',W-margin,H-12,{align:'right'});
-
-  // ---------- DETAIL TABLE ----------
-  doc.addPage();
-
-  // Explicit line breaks make long headings readable without shrinking the table.
-  const head=td.headers.map(h=>{
-    const map={
-      'Total Teachers':'Total\\nTeachers',
-      'Teachers Present':'Teachers\\nPresent',
-      'Teachers Absent':'Teachers\\nAbsent',
-      'Teachers Unmarked':'Teachers\\nUnmarked',
-      'Total Students':'Total\\nStudents',
-      'Students Present':'Students\\nPresent',
-      'Students Absent':'Students\\nAbsent',
-      'Students Unmarked':'Students\\nUnmarked',
-      'Teachers %':'Teachers\\n%',
-      'Students %':'Students\\n%',
-      'School':'School',
-      'Markaz':'Markaz',
-      'Tehsil':'Tehsil',
-      'Wing':'Wing',
-      'EMIS':'EMIS'
+    const drawTop=()=>{
+      doc.setFillColor(255,255,255);doc.rect(0,0,W,H,'F');
+      doc.setFillColor(...navy);doc.rect(0,0,W,6,'F');
+      doc.setFont('helvetica','bold');doc.setTextColor(...navy);doc.setFontSize(18);
+      doc.text('Latest SIS Attendance',W/2,36,{align:'center'});
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...muted);
+      doc.text('Report Date / Time: '+(reportDate||'—')+'  •  Generated: '+formatPKT(new Date()),W/2,53,{align:'center'});
+      doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...navy);
+      doc.text(contextTitle,M,70,{align:'left',maxWidth:C-190});
+      doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(...green);
+      doc.text('Green = 90% or above',W-M-105,70,{align:'right'});
+      doc.setTextColor(...red);doc.text('Red = below 70%',W-M,70,{align:'right'});
     };
-    return map[h]||h;
-  });
 
-  const body=[...td.data,total];
+    const cards=[
+      ['Schools',sum.schools],['Total Teachers',sum.tt],['Teachers Present',sum.tp],['Teachers Absent',sum.ta],['Teachers Unmarked',sum.tu],
+      ['Teacher %',teacherPct.toFixed(1)+'%'],['Total Students',sum.st],['Students Present',sum.sp],['Students Absent',sum.sa],['Students Unmarked',sum.su]
+    ];
+    const drawCards=()=>{
+      const gap=9,cols=5,cw=(C-gap*4)/5,ch=50,y0=88;
+      cards.forEach((q,i)=>{
+        const row=Math.floor(i/cols),col=i%cols,x=M+col*(cw+gap),y=y0+row*(ch+gap);
+        doc.setFillColor(...light);doc.setDrawColor(...line);doc.setLineWidth(.8);doc.roundedRect(x,y,cw,ch,4,4,'FD');
+        doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...muted);doc.text(q[0],x+cw/2,y+16,{align:'center',maxWidth:cw-8});
+        doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...navy);doc.text(typeof q[1]==='number'?fmt(q[1]):q[1],x+cw/2,y+37,{align:'center'});
+      });
+    };
 
-  // Optimized A4-landscape widths. Text columns get more room; numeric columns stay aligned.
-  const widths=td.headers.map(h=>{
-    if(h==='School') return 118;
-    if(h==='Tehsil') return 54;
-    if(h==='Markaz') return 64;
-    if(h==='Wing') return 42;
-    if(h==='EMIS') return 46;
-    if(h==='Schools') return 34;
-    if(h.includes('%')) return 42;
-    if(h.includes('Unmarked')) return 43;
-    if(h.includes('Present')||h.includes('Absent')) return 43;
-    if(h.includes('Total')) return 44;
-    return 40;
-  });
-  const totalWidth=widths.reduce((a,b)=>a+b,0);
-  const scale=bodyW/totalWidth;
+    const headers=td.headers;
+    const body=[...td.data,total];
+    const widths=headers.map(h=>{
+      if(h==='School'||h==='Markaz'||h==='Tehsil'||h==='Wing') return h==='School'?120:58;
+      if(h==='Schools') return 38;
+      if(h.includes('%')) return 43;
+      if(h.includes('Unmarked')) return 48;
+      if(h.includes('Present')||h.includes('Absent')) return 48;
+      if(h.includes('Total')) return 48;
+      return 42;
+    });
+    const scale=C/widths.reduce((a,b)=>a+b,0);
+    const footer=page=>{
+      doc.setDrawColor(...line);doc.setLineWidth(.7);doc.line(M,H-25,W-M,H-25);
+      doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...muted);
+      doc.text('Dashboard developed by M.Sajid AEO Markaz Amli Moti (W)',W/2,H-12,{align:'center'});
+      doc.text('Page '+page,M,H-12);
+    };
+    const drawTableHeader=(y)=>{
+      y+=4;doc.setFillColor(...navy);doc.setDrawColor(...navy);doc.setLineWidth(.8);doc.rect(M,y,C,27,'FD');
+      doc.setFont('helvetica','bold');doc.setFontSize(6.2);doc.setTextColor(255,255,255);
+      let x=M;
+      headers.forEach((h,i)=>{
+        const label=String(h).replace('Total Teachers','Total\\nTeachers').replace('Teachers Present','Teachers\\nPresent').replace('Teachers Absent','Teachers\\nAbsent').replace('Teachers Unmarked','Teachers\\nUnmarked').replace('Total Students','Total\\nStudents').replace('Students Present','Students\\nPresent').replace('Students Absent','Students\\nAbsent').replace('Students Unmarked','Students\\nUnmarked').replace('Teachers %','Teachers\\n%').replace('Students %','Students\\n%');
+        const lines=label.split('\\n');
+        doc.text(lines,x+(widths[i]*scale)/2,y+(lines.length>1?10:17),{align:'center',maxWidth:widths[i]*scale-5,lineHeightFactor:1});
+        doc.setDrawColor(255,255,255);doc.rect(x,y,widths[i]*scale,27,'S');x+=widths[i]*scale;
+      });
+      return y+27;
+    };
 
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(13);
-  doc.setTextColor(20,32,51);
-  doc.text(td.title,W/2,24,{align:'center'});
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(90,103,120);
-  doc.text(
-    `${body.length-1} rows  •  ${reportDate?'Data updated: '+reportDate+' PKT  •  ':''}Teacher + Student attendance detail`,
-    W/2,36,{align:'center'}
-  );
+    let page=1;drawTop();drawCards();let y=drawTableHeader(202);
+    const drawRow=(row,ri)=>{
+      const isTotal=ri===body.length-1;
+      const nameIndex=0;
+      const nameLines=doc.splitTextToSize(String(row[nameIndex]??''),Math.max(45,widths[nameIndex]*scale-8));
+      const rowH=Math.max(20,Math.min(34,8+nameLines.length*8));
+      if(y+rowH>H-48){footer(page);doc.addPage();page++;drawTop();y=drawTableHeader(96);}
+      doc.setFillColor(...(isTotal?[232,238,245]:ri%2?[255,255,255]:[247,249,252]));
+      doc.setDrawColor(...line);doc.setLineWidth(.6);doc.rect(M,y,C,rowH,'FD');
+      let x=M;
+      row.forEach((v,i)=>{
+        const h=headers[i]||'',n=parseFloat(String(v)),isName=i===0;
+        doc.setFont('helvetica',isTotal||h.includes('%')?'bold':'normal');doc.setFontSize(6.8);
+        if(h.includes('%')&&Number.isFinite(n)) doc.setTextColor(...(n>=90?green:n<70?red:amber)); else doc.setTextColor(...navy);
+        const txt=typeof v==='number'?fmt(v):String(v??'');
+        const lines=isName?doc.splitTextToSize(txt,Math.max(45,widths[i]*scale-8)):txt;
+        const tx=isName?x+5:x+(widths[i]*scale)/2,ty=Array.isArray(lines)&&lines.length>1?y+10:y+rowH/2+2.5;
+        doc.text(lines,tx,ty,{align:isName?'left':'center',maxWidth:widths[i]*scale-7,lineHeightFactor:1.05});
+        doc.setDrawColor(...line);doc.rect(x,y,widths[i]*scale,rowH,'S');x+=widths[i]*scale;
+      });
+      y+=rowH;
+    };
+    body.forEach(drawRow);
+    footer(page);
 
-  doc.autoTable({
-    head:[head],
-    body,
-    startY:46,
-    margin:{left:margin,right:margin,top:46,bottom:20},
-    tableWidth:bodyW,
-    columnStyles:Object.fromEntries(widths.map((w,i)=>[i,{cellWidth:w*scale}])),
-    styles:{
-      font:'helvetica',
-      fontSize:7.2,
-      cellPadding:{top:4.2,bottom:4.2,left:3,right:3},
-      overflow:'linebreak',
-      valign:'middle',
-      halign:'center',
-      lineWidth:.25,
-      lineColor:[185,194,205],
-      textColor:[20,32,51],
-      minCellHeight:22
-    },
-    headStyles:{
-      fontSize:7.1,
-      fontStyle:'bold',
-      fillColor:[234,242,251],
-      textColor:[20,32,51],
-      halign:'center',
-      valign:'middle',
-      cellPadding:{top:5,bottom:5,left:2.5,right:2.5},
-      minCellHeight:30
-    },
-    alternateRowStyles:{fillColor:[250,252,255]},
-    rowPageBreak:'avoid',
-    showHead:'everyPage',
-    didParseCell:d=>{
-      if(d.row.index===body.length-1){
-        d.cell.styles.fontStyle='bold';
-        d.cell.styles.fillColor=[221,232,245];
-        d.cell.styles.lineWidth=.4;
-      }
-      const hh=td.headers[d.column.index]||'';
-      const n=parseFloat(String(d.cell.raw??''));
-      if(d.section==='body' && hh.includes('%') && Number.isFinite(n)){
-        d.cell.styles.textColor=n>=90?[8,127,91]:n<70?[201,42,42]:[178,106,0];
-        d.cell.styles.fontStyle='bold';
-      }
-      if(d.column.index===0 && d.section==='body'){
-        d.cell.styles.halign='left';
-      }
-    },
-    didDrawPage:d=>{
-      const page=doc.getNumberOfPages();
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(105,115,130);
-      doc.text(`Page ${page}`,W-margin,H-8,{align:'right'});
-      doc.text('Teacher + Student attendance detail • Grand Total included',margin,H-8);
-    }
-  });
-
-  doc.save(`Attendance_${safe(td.title)}_${reportDate||new Date().toISOString().slice(0,10)}.pdf`);
+    const fileSafe2=s=>String(s||'All').replace(/[\\/:*?"<>|]+/g,'-').replace(/\\s+/g,'_').replace(/_+/g,'_');
+    const stampNow2=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`};
+    const reportLabel2=()=>({school:'School_Wise',markaz:'Markaz_Wise',tehsil:'Tehsil_Wise',wing:'Wing_Wise',zero:'Zero_Progress_Schools',zeroTeacher:'Zero_Teacher_Attendance',zeroStudent:'Zero_Students_Attendance'}[currentView]||'Report');
+    const reportSuffix2=()=>{
+      const t=document.getElementById('tehsilFilter').value,w=document.getElementById('wingFilter').value,q=document.getElementById('search').value.trim(),m=document.getElementById('markazFilter').value;
+      const p=[];if(t)p.push('Tehsil-'+fileSafe2(t));if(w)p.push('Wing-'+fileSafe2(w));if(m)p.push('Markaz-'+fileSafe2(m));if(q)p.push('Search-'+fileSafe2(q));
+      return `${reportLabel2()}${p.length?'_'+p.join('_'):'_All_Filters'}_${stampNow2()}`;
+    };
+    doc.save(reportSuffix2()+'.pdf');
+  }catch(err){console.error('PDF export error:',err);alert('PDF generation failed. Please try again.');}
 };
 </script>
 </body>
