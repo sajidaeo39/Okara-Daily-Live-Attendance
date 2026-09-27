@@ -38,6 +38,7 @@
 <select id="attendanceType">
 <option value="both">Teacher + Student</option><option value="teacher">Teacher Attendance</option><option value="student">Student Attendance</option>
 </select>
+<select id="performanceFilter"><option value="high">Progress High → Low</option><option value="low">Progress Low → High</option></select>
 <button class="action secondary" id="clearBtn">Reset Filters</button>
 <button class="action" id="excelBtn">⬇ Download Excel</button>
 <button class="action pdf" id="pdfBtn">⬇ Download PDF</button>
@@ -125,10 +126,10 @@ function renderCards(){
 }
 
 function sortForPerformance(list){
-  const type=document.getElementById('attendanceType').value;
+  const type=document.getElementById('attendanceType').value; const dir=document.getElementById('performanceFilter').value==='low'?-1:1;
   return [...list].sort((a,b)=>{
     const rb=rateFor(b,type), ra=rateFor(a,type);
-    if(rb!==ra) return rb-ra;
+    if(rb!==ra) return (rb-ra)*dir;
     return String(a.school||a.name||'').localeCompare(String(b.school||b.name||''));
   });
 }
@@ -243,10 +244,10 @@ async function loadLiveData(){
 window.addEventListener('load',loadLiveData);
 setInterval(loadLiveData,30*1000);
 
-['search','tehsilFilter','markazFilter','wingFilter','attendanceType'].forEach(id=>document.getElementById(id).addEventListener('input',renderDashboard));
+['search','tehsilFilter','markazFilter','wingFilter','attendanceType','performanceFilter'].forEach(id=>document.getElementById(id).addEventListener('input',renderDashboard));
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');currentView=b.dataset.view;renderTable();}));
 
-document.getElementById('clearBtn').onclick=()=>{document.getElementById('search').value='';['tehsilFilter','markazFilter','wingFilter'].forEach(id=>document.getElementById(id).value='');document.getElementById('attendanceType').value='both';renderDashboard();};
+document.getElementById('clearBtn').onclick=()=>{document.getElementById('search').value='';['tehsilFilter','markazFilter','wingFilter'].forEach(id=>document.getElementById(id).value='');document.getElementById('attendanceType').value='both';document.getElementById('performanceFilter').value='high';renderDashboard();};
 
 function downloadRows(){
  const td=tableFor(filtered()), total=pdfTotals(td);
@@ -267,7 +268,7 @@ function downloadRows(){
 
 function pdfTotals(td){
  const h=td.headers, rows=td.data, ix=n=>h.indexOf(n), sum=n=>{const i=ix(n);return i<0?0:rows.reduce((s,r)=>s+num(r[i]),0)};
- const row=new Array(h.length).fill(''); row[0]='GRAND TOTAL';
+ const row=new Array(h.length).fill(''); row[h[0]==='No.'?1:0]='GRAND TOTAL';
  const put=(n,v)=>{const i=ix(n);if(i>=0)row[i]=v};
  const tt=sum('Total Teachers'),tp=sum('Teachers Present');
  put('Total Teachers',tt);put('Teachers Present',tp);put('Teachers Absent',sum('Teachers Absent'));put('Teachers Unmarked',sum('Teachers Unmarked'));
