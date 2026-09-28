@@ -169,7 +169,7 @@ function tableFor(f){
    a=f.filter(r=>(r.tt>0 || r.st>0) && r.tp===0 && r.sp===0);
   }
   return {title,
-   headers:['School','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
+   headers:['No.','School','Tehsil','Markaz','Wing','Total Teachers','Teachers Present','Teachers Absent','Teachers Unmarked','Teachers %','Total Students','Students Present','Students Absent','Students Unmarked','Students %'],
    data:sortForPerformance(a).map((r,i)=>[i+1,r.school,r.tehsil,r.markaz,r.wing,r.tt,r.tp,r.ta,r.tu,teacherRate(r).toFixed(1)+'%',r.st,r.sp,r.sa,r.su,studentRate(r).toFixed(1)+'%'])};
  }
  return {title:'School Wise Attendance',
