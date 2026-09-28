@@ -3,9 +3,8 @@ name: Update Okara Attendance V28
 on:
   workflow_dispatch:
   schedule:
-    # Daily around 02:05 Pakistan Standard Time (Asia/Karachi).
-    - cron: '5 2 * * *'
-      timezone: 'Asia/Karachi'
+    # Every hour (GitHub cron is UTC; Pakistan Standard Time is UTC+5).
+    - cron: '0 * * * *'
 
 permissions:
   contents: write
@@ -28,7 +27,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          # No cache option: setup-python cache expects a dependency manifest.
 
       - name: Install dependencies
         run: |
