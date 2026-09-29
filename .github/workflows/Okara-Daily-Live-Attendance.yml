@@ -3,8 +3,11 @@ name: Update Okara Attendance V28
 on:
   workflow_dispatch:
   schedule:
-    # Every hour (GitHub cron is UTC; Pakistan Standard Time is UTC+5).
-    - cron: '0 * * * *'
+    # Every hour at minute 17, deliberately avoiding minute 0 because
+    # GitHub documents higher load and possible delays/dropped scheduled
+    # runs at the start of every hour.
+    - cron: '17 * * * *'
+      timezone: 'Asia/Karachi'
 
 permissions:
   contents: write
@@ -130,6 +133,36 @@ jobs:
                   raise SystemExit(f'ERROR: student totals do not reconcile at row {i} ({school}).')
 
           print(f'PASS: {len(rows)} schools validated with complete, unique, internally consistent attendance data.')
+          PY
+
+      - name: Verify collection timestamp is fresh
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+
+          with open('data.json', encoding='utf-8') as f:
+              p = json.load(f)
+
+          ts = p.get('generated_at')
+          if not ts:
+              raise SystemExit('ERROR: data.json has no generated_at timestamp.')
+
+          generated = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+          now = datetime.now(timezone.utc)
+          age = (now - generated.astimezone(timezone.utc)).total_seconds()
+
+          print(f'Collection timestamp: {ts}')
+          print(f'Collection age: {age:.0f} seconds')
+
+          if age < -300 or age > 900:
+              raise SystemExit('ERROR: data.json timestamp is not fresh enough for this run.')
+
+          print('PASS: fresh SIS dataset timestamp verified.')
+
+          with open('data.json', 'w', encoding='utf-8') as f:
+              json.dump(p, f, ensure_ascii=False, separators=(',', ':'))
+
           PY
 
       - name: Commit live data
