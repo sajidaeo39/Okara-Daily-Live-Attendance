@@ -3,10 +3,8 @@ name: Update Okara Attendance V28
 on:
   workflow_dispatch:
   schedule:
-    # Every hour at minute 17, deliberately avoiding minute 0 because
-    # GitHub documents higher load and possible delays/dropped scheduled
-    # runs at the start of every hour.
-    - cron: '17 * * * *'
+    # Daily at 2:00 AM Pakistan time.
+    - cron: '0 2 * * *'
       timezone: 'Asia/Karachi'
 
 permissions:
