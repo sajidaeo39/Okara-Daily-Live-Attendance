@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: okara-attendance-live
@@ -174,3 +176,16 @@ jobs:
             git commit -m 'Update Okara live attendance V28'
             git push
           fi
+
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload current dashboard to Pages
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: '.'
+
+      - name: Deploy current dashboard to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
