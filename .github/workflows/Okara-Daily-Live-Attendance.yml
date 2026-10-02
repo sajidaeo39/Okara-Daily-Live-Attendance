@@ -55,7 +55,7 @@ jobs:
               print('Collected:', v.get('collected_schools'))
               print('Missing:', v.get('missing_schools'))
               print('Errors:', v.get('error_count'))
-              raise SystemExit(0 if v.get('status') == 'COMPLETE' else 1)
+              raise SystemExit(0 if v.get('status') in ('COMPLETE', 'PARTIAL') else 1)
           except Exception as e:
               print('Collector output could not be validated:', e)
               raise SystemExit(1)
@@ -99,14 +99,12 @@ jobs:
           rows = p.get('rows')
           if not isinstance(rows, list) or not rows:
               raise SystemExit('ERROR: data.json rows is empty.')
-          if v.get('status') != 'COMPLETE':
-              raise SystemExit(f"ERROR: validation status is {v.get('status')!r}, not COMPLETE.")
-          if v.get('expected_schools') is not None and v.get('collected_schools') != v.get('expected_schools'):
-              raise SystemExit('ERROR: collected school count does not equal expected school count.')
-          if v.get('missing_schools', 0) not in (0, None):
-              raise SystemExit('ERROR: missing schools reported by collector.')
-          if v.get('error_count', 0) not in (0, None):
-              raise SystemExit('ERROR: collector reported school/API errors.')
+          if v.get('status') not in ('COMPLETE', 'PARTIAL'):
+              raise SystemExit(f"ERROR: validation status is {v.get('status')!r}; no usable school data was collected.")
+          if v.get('collected_schools', 0) <= 0:
+              raise SystemExit('ERROR: no school data was collected.')
+          if v.get('status') == 'PARTIAL':
+              print(f"WARNING: {v.get('error_count', 0)} school/API error(s). Successful schools will still be published.")
 
           seen = set()
           for i, r in enumerate(rows, 1):
