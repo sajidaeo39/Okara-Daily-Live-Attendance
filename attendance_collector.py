@@ -24,6 +24,7 @@ from html import unescape
 import sys
 import time
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import urlencode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -491,8 +492,16 @@ def write_live_json(rows, errors, output_path, expected_school_keys=None, collec
     expected_count = len(set(str(x) for x in (expected_school_keys or []) if x))
     missing_count = max(0, expected_count - len(data))
     duplicate_count = len(actual_keys) - len(actual_set)
+    if expected_count > 0 and len(data) == expected_count and not errors and not collection_failed and duplicate_count == 0:
+        status = "COMPLETE"
+    elif data:
+        # Publish successful schools even when individual schools/API calls fail.
+        status = "PARTIAL"
+    else:
+        status = "FAILED"
+
     validation = {
-        "status": "COMPLETE" if (not errors and not collection_failed and expected_count > 0 and len(data) == expected_count and duplicate_count == 0) else "INCOMPLETE",
+        "status": status,
         "expected_schools": expected_count,
         "collected_schools": len(data),
         "missing_schools": missing_count,
@@ -574,7 +583,8 @@ def main():
 
         print("  Markaz found:", len(markazs))
 
-        date_from = datetime.now().strftime("%d/%m/%Y")
+        # Use Pakistan local date, not GitHub runner UTC date.
+        date_from = datetime.now(ZoneInfo("Asia/Karachi")).strftime("%d/%m/%Y")
 
         for mi, (mid, mname) in enumerate(markazs, 1):
             print(f"  Markaz {mi}/{len(markazs)}: {mname}")
@@ -814,7 +824,14 @@ def main():
     print("  Expected schools:", len(expected_school_keys))
     print("  Collected schools:", len(rows))
     print("  Collection errors:", len(errors))
-    print("  Status:", "COMPLETE" if (not errors and not collection_failed and expected_school_keys and len(rows) == len(expected_school_keys) and len({str(r[7] or r[6]) for r in rows}) == len(rows)) else "INCOMPLETE")
+    final_unique = len({str(r[7] or r[6]) for r in rows})
+    if expected_school_keys and len(rows) == len(expected_school_keys) and not errors and not collection_failed and final_unique == len(rows):
+        final_status = "COMPLETE"
+    elif rows:
+        final_status = "PARTIAL"
+    else:
+        final_status = "FAILED"
+    print("  Status:", final_status)
     print("  Staff: working-staff denominator uses SIS working/designation data and excludes exposed LPR/non-working counts.")
     print("  Students: enrollment is normalized so Present + Absent cannot exceed Total and Unmarked cannot be negative.")
     print("\nDONE")
