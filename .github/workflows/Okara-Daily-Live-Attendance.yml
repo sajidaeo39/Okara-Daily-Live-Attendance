@@ -3,9 +3,8 @@ name: Update Okara Attendance V28
 on:
   workflow_dispatch:
   schedule:
-    # Daily at 2:00 AM Pakistan time.
-    - cron: '0 2 * * *'
-      timezone: 'Asia/Karachi'
+    # Daily at 2:00 AM Pakistan time = 21:00 UTC (Pakistan has no DST).
+    - cron: '0 21 * * *'
 
 permissions:
   contents: write
