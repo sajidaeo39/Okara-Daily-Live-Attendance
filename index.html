@@ -452,10 +452,9 @@ document.getElementById('pdfBtn').onclick=()=>{
     const stampNow2=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`};
     const reportLabel2=()=>({school:'School_Wise',markaz:'Markaz_Wise',tehsil:'Tehsil_Wise',wing:'Wing_Wise',zero:'Zero_Progress_Schools',zeroTeacher:'Zero_Teacher_Attendance',zeroStudent:'Zero_Students_Attendance'}[currentView]||'Report');
     const reportSuffix2=()=>{
-      const pf='High_to_Low';
       const t=document.getElementById('tehsilFilter').value,w=document.getElementById('wingFilter').value,q=document.getElementById('search').value.trim(),m=document.getElementById('markazFilter').value;
       const p=[];if(t)p.push('Tehsil-'+fileSafe2(t));if(w)p.push('Wing-'+fileSafe2(w));if(m)p.push('Markaz-'+fileSafe2(m));if(q)p.push('Search-'+fileSafe2(q));
-      return `${reportLabel2()}_${pf}${p.length?'_'+p.join('_'):'_All_Filters'}_${stampNow2()}`;
+      return reportLabel2()+(p.length?'_'+p.join('_'):'_All_Filters')+'_'+stampNow2();
     };
     doc.save(reportSuffix2()+'.pdf');
   }catch(err){console.error('PDF export error:',err);alert('PDF generation failed. Please try again.');}
