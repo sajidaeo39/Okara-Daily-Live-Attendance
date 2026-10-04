@@ -454,7 +454,7 @@ document.getElementById('pdfBtn').onclick=()=>{
     const reportSuffix2=()=>{
       const t=document.getElementById('tehsilFilter').value,w=document.getElementById('wingFilter').value,q=document.getElementById('search').value.trim(),m=document.getElementById('markazFilter').value;
       const p=[];if(t)p.push('Tehsil-'+fileSafe2(t));if(w)p.push('Wing-'+fileSafe2(w));if(m)p.push('Markaz-'+fileSafe2(m));if(q)p.push('Search-'+fileSafe2(q));
-      return reportLabel2()+(p.length?'_'+p.join('_'):'_All_Filters')+'_'+stampNow2();
+      return 'Attendance_Report_'+reportLabel2()+(p.length?'_'+p.join('_'):'_All_Filters')+'_'+stampNow2();
     };
     doc.save(reportSuffix2()+'.pdf');
   }catch(err){console.error('PDF export error:',err);alert('PDF generation failed. Please try again.');}
