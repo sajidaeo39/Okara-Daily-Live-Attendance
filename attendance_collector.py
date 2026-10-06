@@ -477,7 +477,7 @@ def student_attendance(student_map, emis):
 
 
 def write_live_json(rows, errors, output_path, expected_school_keys=None, collection_failed=False):
-    """Write school data plus an explicit completeness/validation block."""
+    """Write usable rows and exact missing-school/API errors for GitHub Pages."""
     headers = [
         "Tehsil","Tehsil ID","Report Markaz","Actual Markaz ID","Wing",
         "School","School ID","EMIS",
@@ -487,24 +487,46 @@ def write_live_json(rows, errors, output_path, expected_school_keys=None, collec
         "Student Unmarked","Student Unmarked %","Student Marked","Student Total","Student Latest Day"
     ]
     data = [dict(zip(headers, r)) for r in rows]
-    actual_keys = [str(d.get("EMIS") or d.get("School ID") or "") for d in data]
-    actual_set = set(k for k in actual_keys if k)
-    expected_count = len(set(str(x) for x in (expected_school_keys or []) if x))
-    missing_count = max(0, expected_count - len(data))
-    duplicate_count = len(actual_keys) - len(actual_set)
-    if expected_count > 0 and len(data) == expected_count and not errors and not collection_failed and duplicate_count == 0:
+
+    actual_set = {
+        str(d.get("EMIS") or d.get("School ID") or "").strip()
+        for d in data
+        if str(d.get("EMIS") or d.get("School ID") or "").strip()
+    }
+    expected_map = expected_school_keys or {}
+    if not isinstance(expected_map, dict):
+        expected_map = {str(x): str(x) for x in expected_map if str(x).strip()}
+
+    missing = [
+        (str(key).strip(), str(name or key).strip())
+        for key, name in expected_map.items()
+        if str(key).strip() and str(key).strip() not in actual_set
+    ]
+
+    for key, school_name in missing:
+        errors.append([
+            "", "", "", key, school_name, "MISSING",
+            "No usable attendance row was published for this school."
+        ])
+
+    duplicate_count = len([
+        str(d.get("EMIS") or d.get("School ID") or "").strip()
+        for d in data
+        if str(d.get("EMIS") or d.get("School ID") or "").strip()
+    ]) - len(actual_set)
+
+    if expected_map and not missing and not errors and not collection_failed and duplicate_count == 0:
         status = "COMPLETE"
     elif data:
-        # Publish successful schools even when individual schools/API calls fail.
         status = "PARTIAL"
     else:
         status = "FAILED"
 
     validation = {
         "status": status,
-        "expected_schools": expected_count,
+        "expected_schools": len(expected_map),
         "collected_schools": len(data),
-        "missing_schools": missing_count,
+        "missing_schools": len(missing),
         "duplicate_keys": max(0, duplicate_count),
         "error_count": len(errors),
         "collection_failed": bool(collection_failed),
@@ -513,12 +535,15 @@ def write_live_json(rows, errors, output_path, expected_school_keys=None, collec
         "generated_at": datetime.now().astimezone().isoformat(),
         "source": BASE,
         "district": "Okara",
-        "version": "V28",
+        "version": "V29",
         "validation": validation,
         "rows": data,
         "errors": errors,
     }
-    Path(output_path).write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    Path(output_path).write_text(
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8"
+    )
 
 
 def main():
@@ -526,7 +551,7 @@ def main():
     parser.add_argument("--github-data", default="", help="Write live JSON for GitHub Pages")
     args = parser.parse_args()
 
-    print("OKARA SIS - TEACHER + STUDENT LATEST ATTENDANCE V25 FIXED")
+    print("OKARA SIS - TEACHER + STUDENT LATEST ATTENDANCE V29")
     print("=" * 58)
     if args.github_data:
         choice = "4"
@@ -568,7 +593,7 @@ def main():
 
     rows = []
     errors = []
-    expected_school_keys = set()
+    expected_school_keys = {}
     collection_failed = False
 
     for tid in selected:
@@ -604,10 +629,17 @@ def main():
                     continue
 
                 print("    Schools:", len(schools))
-                expected_school_keys.update(
-                    clean(item[0]) for item in schools
-                    if item[0] not in EXCLUDED_SCHOOL_IDS
-                )
+                # Completeness is tracked by EMIS, the same key used by the SIS attendance table.
+                for item in schools:
+                    sid, _, original_name = item
+                    if sid in EXCLUDED_SCHOOL_IDS:
+                        continue
+                    emis_key, resolved_name = get_school_emis_and_name(
+                        s, sid, mid, csrf, original_name
+                    )
+                    key = clean(emis_key or sid)
+                    if key and key not in EXCLUDED_EMIS:
+                        expected_school_keys[key] = resolved_name
                 print("    Fetching Working Staff school-wise...")
 
                 try:
@@ -632,7 +664,7 @@ def main():
                     })
                     worker_local.session.mount(
                         "https://",
-                        HTTPAdapter(max_retries=retry, pool_connections=8, pool_maxsize=8)
+                        HTTPAdapter(max_retries=retry, pool_connections=16, pool_maxsize=16)
                     )
                 return worker_local.session
 
@@ -642,50 +674,70 @@ def main():
                     return None, None
 
                 local = get_worker_session()
-
-                emis, sname = get_school_emis_and_name(
-                    local, sid, mid, csrf, original_name
-                )
+                emis, sname = get_school_emis_and_name(local, sid, mid, csrf, original_name)
                 if emis in EXCLUDED_EMIS:
                     return None, None
 
                 w = wing(mname, sname, sid)
                 report_markaz = "SECONDARY-WING" if w == "Secondary Wing" else mname
-                school_filled_total = 0
                 school_errors = []
 
+                # Teacher and student collection are independent. Publish a
+                # school when either side succeeds instead of dropping it.
+                ta = None
+                sa = None
+
                 try:
-                    # New SIS endpoint: use Filled/assigned staff, not sanctioned Total.
-                    school_filled_total = get_filled_staff_from_sanctioned_posts(
+                    filled = get_filled_staff_from_sanctioned_posts(
                         local, DISTRICT, tid, mid, sid, emis
                     )
-                    ta = teacher_attendance(
-                        local, tid, mid, sid, emis, school_filled_total
-                    )
-
+                    ta = teacher_attendance(local, tid, mid, sid, emis, filled)
                 except Exception as e:
                     school_errors.append([tname, tid, mname, mid, sname, "TEACHER", str(e)])
-                    return None, school_errors
 
                 try:
                     sa = student_attendance(student_map, emis)
                 except Exception as e:
                     school_errors.append([tname, tid, mname, mid, sname, "STUDENT", str(e)])
+
+                if ta is None and sa is None:
                     return None, school_errors
+
+                if ta is None:
+                    tp = ta_abs = tu = tm = tt = working_staff = None
+                else:
+                    tp = ta["Present"]
+                    ta_abs = ta["Absent"]
+                    tu = ta["Unmarked"]
+                    tm = ta["Marked"]
+                    tt = ta["Total"]
+                    working_staff = tt
+
+                if sa is None:
+                    se = sp = spp = spa = sup = su = sm = latest_day = None
+                else:
+                    se = sa["Enrolled"]
+                    sp = sa["Present"]
+                    spp = sa["Present %"]
+                    spa = sa["Absent"]
+                    sup = sa["Absent %"]
+                    su = sa["Unmarked"]
+                    sm = sa["Marked"]
+                    latest_day = sa["Day"]
 
                 row = [
                     tname, tid, report_markaz, mid, w,
                     sname, sid, emis,
-                    ta["Present"], ta["Absent"], ta["Unmarked"], ta["Marked"], ta["Total"],
-                    school_filled_total,
-                    sa["Enrolled"], sa["Present"], sa["Present %"],
-                    sa["Absent"], sa["Absent %"], sa["Unmarked"], sa["Unmarked %"],
-                    sa["Present"] + sa["Absent"], sa["Enrolled"], sa["Day"],
+                    tp, ta_abs, tu, tm, tt,
+                    working_staff,
+                    se, sp, spp, spa, sup, su,
+                    (sa["Unmarked %"] if sa is not None else None),
+                    sm, se, latest_day,
                 ]
                 return row, school_errors
 
             # Run independent school API calls concurrently.
-            max_workers = min(24, max(1, len(schools)))
+            max_workers = min(32, max(1, len(schools)))
             results = [None] * len(schools)
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_map = {
