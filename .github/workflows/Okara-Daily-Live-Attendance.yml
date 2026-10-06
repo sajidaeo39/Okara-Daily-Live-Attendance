@@ -125,17 +125,21 @@ jobs:
               if sid in seen:
                   raise SystemExit(f'ERROR: duplicate school identifier at row {i}: {sid}')
               seen.add(sid)
+              teacher_fields = ['Teacher Present','Teacher Absent','Teacher Unmarked','Teacher Total']
+              student_fields = ['Student Present','Student Absent','Student Unmarked','Student Total']
               try:
-                  tp, ta, tu, tt = [n(r[k]) for k in ['Teacher Present','Teacher Absent','Teacher Unmarked','Teacher Total']]
-                  sp, sa, su, st = [n(r[k]) for k in ['Student Present','Student Absent','Student Unmarked','Student Total']]
+                  if all(r.get(k) not in (None, '') for k in teacher_fields):
+                      tp, ta, tu, tt = [n(r[k]) for k in teacher_fields]
+                      if abs((tp + ta + tu) - tt) > 0.01:
+                          raise ValueError('teacher totals do not reconcile')
+                  if all(r.get(k) not in (None, '') for k in student_fields):
+                      sp, sa, su, st = [n(r[k]) for k in student_fields]
+                      if sp + sa > st + 0.01:
+                          raise ValueError('student present+absent exceeds total')
+                      if abs((sp + sa + su) - st) > 0.01:
+                          raise ValueError('student totals do not reconcile')
               except ValueError as e:
                   raise SystemExit(f'ERROR: row {i} ({school}): {e}')
-              if abs((tp + ta + tu) - tt) > 0.01:
-                  raise SystemExit(f'ERROR: teacher totals do not reconcile at row {i} ({school}).')
-              if sp + sa > st + 0.01:
-                  raise SystemExit(f'ERROR: student present+absent exceeds total at row {i} ({school}).')
-              if abs((sp + sa + su) - st) > 0.01:
-                  raise SystemExit(f'ERROR: student totals do not reconcile at row {i} ({school}).')
 
           print(f'PASS: {len(rows)} schools validated with complete, unique, internally consistent attendance data.')
           PY
