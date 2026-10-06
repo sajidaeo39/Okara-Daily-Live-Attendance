@@ -70,7 +70,7 @@
   .toolbar input,.toolbar select,.toolbar .action{height:38px;font-size:10px}
   th,td{padding:6px 5px;font-size:8.5px}
   th:first-child,td:first-child{min-width:118px}
-}#pdfHeader{display:none!important}</style>
+}#pdfHeader{display:none!important} .errorbox{background:#fff5f5;border:1px solid #f0b8b8;color:#7f1d1d;padding:10px 12px;border-radius:9px;margin:8px 0 10px;font-size:11px}.errorbox-title{font-weight:750;margin-bottom:6px}.errorbox ul{margin:4px 0 0 18px;padding:0}.errorbox li{margin:2px 0}.errorbox .etype{font-weight:650;color:#991b1b}@media(max-width:700px){.errorbox{font-size:9.5px;padding:7px}.errorbox-title{font-size:10px}} </style>
 </head>
 <body>
 <header><div class="wrap">
@@ -104,6 +104,10 @@
 </div>
 
 <div id="warning" class="warning" style="display:none"></div>
+<div id="errorsBox" class="errorbox" style="display:none">
+  <div class="errorbox-title">⚠ Missing / Error Schools <span id="errorCount"></span></div>
+  <div id="errorsList"></div>
+</div>
 
 </div>
 
@@ -117,7 +121,7 @@
 let rows=[], currentView='school', reportDate='';
 const LIVE_DATA_URL='data.json';
 
-const num=(v)=>{ if(v===null||v===undefined||v==='') return 0; const n=Number(v); return Number.isFinite(n)?n:0; };
+const num=(v)=>{ if(v===null||v===undefined||v==='') return 0; const n=Number(v); return Number.isFinite(n)?n:0; }; const hasVal=(v)=>v!==null&&v!==undefined&&v!=='';
 const fmt=(n)=>Number(n||0).toLocaleString('en-US');
 const pct=(p,t)=>t>0?Math.round(p/t*1000)/10:0;
 function formatPKT(value=new Date()){
@@ -289,12 +293,31 @@ async function loadLiveData(){
     if(v.status==='PENDING'){
       warn.style.display='block';
       warn.innerHTML=`ℹ️ <b>LIVE SIS DATA NOT UPDATED YET</b> — the daily SIS collection has not produced a new dataset yet.`;
-    }else if(v.status==='INCOMPLETE'){
-      warn.style.display='block';
-      warn.innerHTML=`⚠️ <b>LIVE SIS DATA INCOMPLETE</b> — Expected: ${fmt(v.expected_schools||0)} schools • Collected: ${fmt(v.collected_schools||rows.length)} • Missing: ${fmt(v.missing_schools||0)} • Errors: ${fmt(v.error_count||0)}. Data is shown without filling failed schools with fake zero values.`;
     }else{
-      warn.style.display='none';
+      warn.style.display = (v.status==='PARTIAL') ? 'block' : 'none';
+      if(v.status==='PARTIAL'){
+        warn.innerHTML=`⚠️ <b>PARTIAL LIVE DATA</b> — Expected: ${fmt(v.expected_schools||0)} • Published: ${fmt(v.collected_schools||rows.length)} • Missing/Errors: ${fmt(v.error_count||0)}. Available school data is shown.`;
+      }
     }
+
+    const errors = Array.isArray(payload.errors) ? payload.errors : [];
+    const box = document.getElementById('errorsBox');
+    const list = document.getElementById('errorsList');
+    document.getElementById('errorCount').textContent = errors.length ? '('+errors.length+')' : '';
+    if(errors.length){
+      box.style.display='block';
+      list.innerHTML='<ul>'+errors.map(e=>{
+        const school=esc(e[4]||e[3]||'Unknown School');
+        const type=esc(e[5]||'ERROR');
+        const detail=esc(e[6]||'Data could not be collected');
+        const markaz=esc(e[2]||'');
+        return '<li><span class="etype">'+type+'</span> — <b>'+school+'</b>'+(markaz?' ('+markaz+')':'')+' — '+detail+'</li>';
+      }).join('')+'</ul>';
+    }else{
+      box.style.display='none';
+      list.innerHTML='';
+    }
+
     fillFilters();renderDashboard();
   }catch(err){
     console.error('Live data unavailable:', err);
