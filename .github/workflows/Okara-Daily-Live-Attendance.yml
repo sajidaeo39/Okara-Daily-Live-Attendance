@@ -1,4 +1,4 @@
-name: Update Okara Attendance V28
+name: Update Okara Attendance V29
 
 on:
   push:
@@ -39,11 +39,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install requests openpyxl
 
-      - name: Collect SIS attendance V28 (retry if needed)
+      - name: Collect SIS attendance V29 (retry if needed)
         shell: bash
         run: |
           set -u
-          for attempt in 1 2 3; do
+          for attempt in 1 2; do
             echo "SIS collection attempt ${attempt}/3"
             python attendance_collector.py --github-data data.json || true
 
@@ -68,11 +68,11 @@ jobs:
               break
             fi
 
-            if [ "$attempt" -lt 3 ]; then
-              echo 'Collection was not complete. Waiting 20 seconds before retry...'
-              sleep 20
+            if [ "$attempt" -lt 2 ]; then
+              echo 'Collection was not complete. Waiting 10 seconds before retry...'
+              sleep 10
             else
-              echo 'All SIS collection attempts failed to produce COMPLETE data.'
+              echo 'All SIS collection attempts failed to produce usable data.'
               exit 1
             fi
           done
@@ -112,8 +112,12 @@ jobs:
           seen = set()
           for i, r in enumerate(rows, 1):
               missing = [k for k in REQUIRED if k not in r]
+              # Partial teacher/student data is allowed; missing values are
+              # shown as blanks and listed in the dashboard Errors box.
+              required_identity = ['School','EMIS']
+              missing = [k for k in required_identity if k not in r or str(r.get(k) or '').strip()=='']
               if missing:
-                  raise SystemExit(f'ERROR: row {i} missing fields: {missing}')
+                  raise SystemExit(f'ERROR: row {i} missing identity fields: {missing}')
               school = str(r.get('School') or '').strip()
               sid = str(r.get('School ID') or r.get('EMIS') or school).strip()
               if not school:
