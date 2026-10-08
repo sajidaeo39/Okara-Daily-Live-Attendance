@@ -70,7 +70,7 @@
   .toolbar input,.toolbar select,.toolbar .action{height:38px;font-size:10px}
   th,td{padding:6px 5px;font-size:8.5px}
   th:first-child,td:first-child{min-width:118px}
-}#pdfHeader{display:none!important} .errorbox{background:#fff5f5;border:1px solid #f0b8b8;color:#7f1d1d;padding:10px 12px;border-radius:9px;margin:8px 0 10px;font-size:11px}.errorbox-title{font-weight:750;margin-bottom:6px}.errorbox ul{margin:4px 0 0 18px;padding:0}.errorbox li{margin:2px 0}.errorbox .etype{font-weight:650;color:#991b1b}@media(max-width:700px){.errorbox{font-size:9.5px;padding:7px}.errorbox-title{font-size:10px}} </style>
+}#pdfHeader{display:none!important} .errorbox{background:#fff8e8;border:1px solid #e8c66a;color:#6b4e00;padding:10px 12px;border-radius:9px;margin:8px 0 10px;font-size:11px}.errorbox-title{font-weight:750;margin-bottom:7px}.missing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:7px}.missing-school{background:#fff;border:1px solid #eadfbf;border-radius:7px;padding:7px 9px}.missing-school .school-name{font-weight:750;color:#7f1d1d}.missing-school .school-meta{margin-top:3px;color:#667085;font-size:10px;line-height:1.35}@media(max-width:700px){.errorbox{font-size:9.5px;padding:7px}.missing-grid{grid-template-columns:1fr}.missing-school .school-meta{font-size:9px}} </style>
 </head>
 <body>
 <header><div class="wrap">
@@ -306,13 +306,30 @@ async function loadLiveData(){
     document.getElementById('errorCount').textContent = errors.length ? '('+errors.length+')' : '';
     if(errors.length){
       box.style.display='block';
-      list.innerHTML='<ul>'+errors.map(e=>{
-        const school=esc(e[4]||e[3]||'Unknown School');
-        const type=esc(e[5]||'ERROR');
-        const detail=esc(e[6]||'Data could not be collected');
-        const markaz=esc(e[2]||'');
-        return '<li><span class="etype">'+type+'</span> — <b>'+school+'</b>'+(markaz?' ('+markaz+')':'')+' — '+detail+'</li>';
-      }).join('')+'</ul>';
+      const unique=new Map();
+      errors.forEach(e=>{
+        const school=String(e[4]||e[3]||'Unknown School').trim();
+        const key=String(e[3]||school).trim()+'|'+school;
+        if(!unique.has(key)){
+          unique.set(key,{
+            school,
+            emis:String(e[3]||'').trim(),
+            tehsil:String(e[0]||'').trim(),
+            markaz:String(e[2]||'').trim(),
+            wing: school.toUpperCase().includes('SECONDARY-WING') ? 'Secondary Wing' : ''
+          });
+        }
+      });
+      const missing=[...unique.values()];
+      document.getElementById('errorCount').textContent=missing.length?'('+missing.length+')':'';
+      list.innerHTML='<div class="missing-grid">'+missing.map(x=>{
+        const meta=[
+          x.emis?'EMIS: '+esc(x.emis):'',
+          x.tehsil?'Tehsil: '+esc(x.tehsil):'',
+          x.markaz?'Markaz: '+esc(x.markaz):''
+        ].filter(Boolean).join(' • ');
+        return '<div class="missing-school"><div class="school-name">'+esc(x.school)+'</div>'+(meta?'<div class="school-meta">'+meta+'</div>':'')+'</div>';
+      }).join('')+'</div>';
     }else{
       box.style.display='none';
       list.innerHTML='';
@@ -324,7 +341,7 @@ async function loadLiveData(){
   }
 }
 window.addEventListener('load',loadLiveData);
-setInterval(loadLiveData,30*1000);
+setInterval(loadLiveData,2*60*1000);
 
 ['search','tehsilFilter','markazFilter','wingFilter'].forEach(id=>document.getElementById(id).addEventListener('input',renderDashboard));
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');currentView=b.dataset.view;renderTable();}));
