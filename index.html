@@ -304,33 +304,18 @@ async function loadLiveData(){
     const errors = Array.isArray(payload.errors) ? payload.errors : [];
     const box = document.getElementById('errorsBox');
     const list = document.getElementById('errorsList');
-    document.getElementById('errorCount').textContent = errors.length ? '('+errors.length+')' : '';
-    if(errors.length){
+    const unique = new Set();
+    errors.forEach(item=>{
+      const school = String(item[4] || item[3] || '').trim();
+      if(school) unique.add(school);
+    });
+    const missing = [...unique];
+    document.getElementById('errorCount').textContent = missing.length ? '('+missing.length+')' : '';
+    if(missing.length){
       box.style.display='block';
-      const unique=new Map();
-      errors.forEach(e=>{
-        const school=String(e[4]||e[3]||'Unknown School').trim();
-        const key=String(e[3]||school).trim()+'|'+school;
-        if(!unique.has(key)){
-          unique.set(key,{
-            school,
-            emis:String(e[3]||'').trim(),
-            tehsil:String(e[0]||'').trim(),
-            markaz:String(e[2]||'').trim(),
-            wing: school.toUpperCase().includes('SECONDARY-WING') ? 'Secondary Wing' : ''
-          });
-        }
-      });
-      const missing=[...unique.values()];
-      document.getElementById('errorCount').textContent=missing.length?'('+missing.length+')':'';
-      list.innerHTML='<div class="missing-grid">'+missing.map(x=>{
-        const meta=[
-          x.emis?'EMIS: '+esc(x.emis):'',
-          x.tehsil?'Tehsil: '+esc(x.tehsil):'',
-          x.markaz?'Markaz: '+esc(x.markaz):''
-        ].filter(Boolean).join(' • ');
-        return '<div class="missing-school"><div class="school-name">'+esc(x.school)+'</div>'+(meta?'<div class="school-meta">'+meta+'</div>':'')+'</div>';
-      }).join('')+'</div>';
+      list.innerHTML = '<div class="missing-grid">'+missing.map(school =>
+        '<div class="missing-school"><div class="school-name">'+esc(school)+'</div></div>'
+      ).join('')+'</div>';
     }else{
       box.style.display='none';
       list.innerHTML='';
